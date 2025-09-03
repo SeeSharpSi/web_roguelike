@@ -41,6 +41,12 @@ templ Map(m game.Map, p game.Player) {
 			background-color: #fff;
 			border-style: solid;
 			border-width: 3px; /* A nice, thick border to be visible */
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-weight: bold;
+			font-size: 18px;
+			color: var(--accent-danger, #ea9a97);
 		}
 		.empty-cell {
 			background-color: #ccc;
@@ -57,10 +63,10 @@ templ Map(m game.Map, p game.Player) {
 		for y := m.Length - 1; y >= 0; y-- {
 			// Then we loop from left to right (x = 0 to Width-1).
 			for x := 0; x < m.Width; x++ {
-				// Check if a room exists at the current coordinate (x, y).
+				// Check if a room has been explored at the current coordinate (x, y).
 				{{ current_pos := game.Pos{X: x, Y: y} }}
-				if room, exists := m.Rooms[current_pos]; exists {
-					// If a room exists, create a div for it.
+				if room, explored := m.Explored[current_pos]; explored {
+					// If a room has been explored, create a div for it.
 					// We use an inline style to set the specific border colors for each of the four walls.
 					<div
 						class="room-cell"
@@ -71,11 +77,13 @@ templ Map(m game.Map, p game.Player) {
 							"border-left-color: " + wallColor(room.WWall.Type) + ";"
 						}
 					>
-						// You could add content inside the room here, like the coordinates.
-						// { strconv.Itoa(x) },{ strconv.Itoa(y) }
+						// Show player as "X" if they're in this room
+						if current_pos.X == p.Position.X && current_pos.Y == p.Position.Y {
+							X
+						}
 					</div>
 				} else {
-					// If no room exists, create an empty, grayed-out cell as a placeholder.
+					// If no room has been explored, create an empty, grayed-out cell as a placeholder.
 					<div class="empty-cell"></div>
 				}
 			}

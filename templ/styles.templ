@@ -1,7 +1,8 @@
 package templ
 
 templ ThemeVariables(theme string) {
-	if theme == "nord" {
+	switch theme {
+	case "nord":
 		<style>
 			:root {
 				/* Palette - Nord */
@@ -14,7 +15,7 @@ templ ThemeVariables(theme string) {
 				--border-color: #4C566A;
 			}
 		</style>
-	} else if theme == "solarized-light" {
+	case "solarized-light":
 		<style>
 			:root {
 				/* Palette - Solarized Light */
@@ -27,7 +28,20 @@ templ ThemeVariables(theme string) {
 				--border-color: #93a1a1;
 			}
 		</style>
-	} else {
+	case "rose-pine", "rosepine":
+		<style>
+			:root {
+				/* Palette - Rosé Pine Moon */
+				--bg-primary: #232136;
+				--bg-secondary: #2a273f;
+				--text-primary: #e0def4;
+				--text-secondary: #908caa;
+				--accent-primary: #c4a7e7;
+				--accent-danger: #ea9a97;
+				--border-color: #393552;
+			}
+		</style>
+	default:
 		<style>
 			:root {
 				/* Palette - Rosé Pine Moon (Default) */

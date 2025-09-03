@@ -67,6 +67,7 @@ func (m *Map) Generate_map() {
 	m.Width = 7 + rand.N(4)  // Width will be between 7 and 10
 	m.Length = 7 + rand.N(4) // Length will be between 7 and 10
 	m.Rooms = make(map[Pos]Room)
+	m.Explored = make(map[Pos]*Room)
 
 	// A stack to keep track of the path for backtracking
 	stack := []Pos{}

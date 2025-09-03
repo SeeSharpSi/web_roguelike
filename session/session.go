@@ -45,6 +45,8 @@ func (m *Manager) CreateSession() string {
 	new_map := game.Map{}
 	new_map.Generate_map()
 	new_player.Position = new_map.StartPos
+	startingRoom := new_map.Rooms[new_player.Position]
+	new_map.Explored[new_player.Position] = &startingRoom
 
 	m.sessions[id] = &Session{
 		ID: id,
