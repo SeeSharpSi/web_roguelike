@@ -131,12 +131,20 @@ func MapGrid(m game.Map, p game.Player) templ.Component {
 							return templ_7745c5c3_Err
 						}
 					} else if enemyHealth > 0 {
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<span style=\"color: var(--enemy-color);\">")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
 						var templ_7745c5c3_Var4 string
 						templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(enemyHealth)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 81, Col: 19}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 81, Col: 60}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</span>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -151,24 +159,24 @@ func MapGrid(m game.Map, p game.Player) templ.Component {
 							return templ_7745c5c3_Err
 						}
 					} else if hasBomb {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "B")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "B")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, " <div class=\"empty-cell\"></div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, " <div class=\"empty-cell\"></div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -197,7 +205,7 @@ func Map(m game.Map, p game.Player) templ.Component {
 			templ_7745c5c3_Var6 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"game-map\"><script type=\"text/javascript\" src=\"/static/htmx.min.js\"></script><script>\n\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\tdocument.addEventListener('keydown', function(event) {\n\t\t\t\tlet direction = null;\n\n\t\t\t\tswitch(event.key) {\n\t\t\t\t\tcase 'ArrowUp':\n\t\t\t\t\tcase 'k':           // Vim: up\n\t\t\t\t\t\tdirection = 'north';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowDown':\n\t\t\t\t\tcase 'j':           // Vim: down\n\t\t\t\t\t\tdirection = 'south';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowLeft':\n\t\t\t\t\tcase 'h':           // Vim: left\n\t\t\t\t\t\tdirection = 'west';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowRight':\n\t\t\t\t\tcase 'l':           // Vim: right\n\t\t\t\t\t\tdirection = 'east';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase ' ':           // Spacebar for bomb placement\n\t\t\t\t\tcase 'b':           // 'b' for bomb placement\n\t\t\t\t\t\tdirection = 'place_bomb';\n\t\t\t\t\t\tbreak;\n\t\t\t\t}\n\n\t\t\t\tif (direction) {\n\t\t\t\t\tevent.preventDefault();\n\t\t\t\t\t// Trigger HTMX request\n\t\t\t\t\thtmx.ajax('GET', '/move?direction=' + direction, {\n\t\t\t\t\t\ttarget: '.game-map',\n\t\t\t\t\t\tswap: 'outerHTML'\n\t\t\t\t\t});\n\t\t\t\t}\n\t\t\t});\n\t\t});\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div class=\"game-map\"><script type=\"text/javascript\" src=\"/static/htmx.min.js\"></script><script>\n\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\tdocument.addEventListener('keydown', function(event) {\n\t\t\t\tlet direction = null;\n\n\t\t\t\tswitch(event.key) {\n\t\t\t\t\tcase 'ArrowUp':\n\t\t\t\t\tcase 'k':           // Vim: up\n\t\t\t\t\t\tdirection = 'north';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowDown':\n\t\t\t\t\tcase 'j':           // Vim: down\n\t\t\t\t\t\tdirection = 'south';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowLeft':\n\t\t\t\t\tcase 'h':           // Vim: left\n\t\t\t\t\t\tdirection = 'west';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowRight':\n\t\t\t\t\tcase 'l':           // Vim: right\n\t\t\t\t\t\tdirection = 'east';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase ' ':           // Spacebar for bomb placement\n\t\t\t\t\tcase 'b':           // 'b' for bomb placement\n\t\t\t\t\t\tdirection = 'place_bomb';\n\t\t\t\t\t\tbreak;\n\t\t\t\t}\n\n\t\t\t\tif (direction) {\n\t\t\t\t\tevent.preventDefault();\n\t\t\t\t\t// Trigger HTMX request\n\t\t\t\t\thtmx.ajax('GET', '/move?direction=' + direction, {\n\t\t\t\t\t\ttarget: '.game-map',\n\t\t\t\t\t\tswap: 'outerHTML'\n\t\t\t\t\t});\n\t\t\t\t}\n\t\t\t});\n\t\t});\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -205,7 +213,7 @@ func Map(m game.Map, p game.Player) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<style>\n\t\t.map-grid {\n\t\t\tdisplay: grid;\n\t\t\tbackground-color: var(--bg-primary);\n            max-width: fit-content;\n            gap: 2px;\n\t\t\t// The grid dimensions are set dynamically via an inline style attribute.\n\t\t}\n\t\t.room-cell, .empty-cell {\n\t\t\twidth: 60px;\n\t\t\theight: 60px;\n\t\t\tbox-sizing: border-box; /* Ensures padding and border are included in the element's total width and height */\n\t\t}\n\t\t.room-cell {\n\t\t\tbackground-color: var(--room-bg);\n\t\t\tborder-style: solid;\n\t\t\tborder-width: 2px; /* A nice, thick border to be visible */\n\t\t\tdisplay: flex;\n\t\t\talign-items: center;\n\t\t\tjustify-content: center;\n\t\t\tfont-weight: bold;\n\t\t\tfont-size: 18px;\n\t\t\tcolor: var(--player-color);\n\t\t}\n\t\t.empty-cell {\n\t\t\tbackground-color: var(--room-unexplored);\n\t\t}\n\t</style>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<style>\n\t\t.map-grid {\n\t\t\tdisplay: grid;\n\t\t\tbackground-color: var(--bg-primary);\n            max-width: fit-content;\n            gap: 2px;\n\t\t\t// The grid dimensions are set dynamically via an inline style attribute.\n\t\t}\n\t\t.room-cell, .empty-cell {\n\t\t\twidth: 60px;\n\t\t\theight: 60px;\n\t\t\tbox-sizing: border-box; /* Ensures padding and border are included in the element's total width and height */\n\t\t}\n\t\t.room-cell {\n\t\t\tbackground-color: var(--room-bg);\n\t\t\tborder-style: solid;\n\t\t\tborder-width: 2px; /* A nice, thick border to be visible */\n\t\t\tdisplay: flex;\n\t\t\talign-items: center;\n\t\t\tjustify-content: center;\n\t\t\tfont-weight: bold;\n\t\t\tfont-size: 18px;\n\t\t\tcolor: var(--player-color);\n\t\t}\n\t\t.empty-cell {\n\t\t\tbackground-color: var(--room-unexplored);\n\t\t}\n\t</style>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -213,7 +221,7 @@ func Map(m game.Map, p game.Player) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div style=\"margin-top: 20px; text-align: center;\"><div style=\"display: inline-block;\"><div style=\"margin-bottom: 10px;\"><button hx-get=\"/move?direction=north\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">↑</button></div><div><button hx-get=\"/move?direction=west\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">←</button> <button hx-get=\"/move?direction=east\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">→</button></div><div style=\"margin-top: 10px;\"><button hx-get=\"/move?direction=south\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">↓</button></div></div></div><div style=\"margin-top: 20px; text-align: center; font-size: 18px; font-weight: bold; color: var(--player-color);\">Health: ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div style=\"margin-top: 20px; text-align: center;\"><div style=\"display: inline-block;\"><div style=\"margin-bottom: 10px;\"><button hx-get=\"/move?direction=north\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">↑</button></div><div><button hx-get=\"/move?direction=west\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">←</button> <button hx-get=\"/move?direction=east\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">→</button></div><div style=\"margin-top: 10px;\"><button hx-get=\"/move?direction=south\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">↓</button></div></div></div><div style=\"margin-top: 20px; text-align: center; font-size: 18px; font-weight: bold; color: var(--player-color);\">Health: ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -226,7 +234,7 @@ func Map(m game.Map, p game.Player) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</div><div style=\"margin-top: 10px; text-align: center; font-size: 16px; color: var(--text-secondary);\">Bombs: ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</div><div style=\"margin-top: 10px; text-align: center; font-size: 16px; color: var(--text-secondary);\">Bombs: ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -239,7 +247,7 @@ func Map(m game.Map, p game.Player) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</div><div style=\"margin-top: 20px; text-align: center;\"><div style=\"display: inline-block; text-align: left;\"><div style=\"font-weight: bold; margin-bottom: 10px;\">Wall Types:</div><div style=\"display: flex; flex-direction: column; gap: 5px;\"><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-empty); background-color: var(--room-bg);\"></div><span>Empty</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-door); background-color: var(--room-bg);\"></div><span>Door</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-hidden-door); background-color: var(--room-bg);\"></div><span>Hidden Door</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-indestructible); background-color: var(--room-bg);\"></div><span>Indestructible</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-destructible); background-color: var(--room-bg);\"></div><span>Destructible</span></div></div></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div><div style=\"margin-top: 20px; text-align: center;\"><div style=\"display: inline-block; text-align: left;\"><div style=\"font-weight: bold; margin-bottom: 10px;\">Wall Types:</div><div style=\"display: flex; flex-direction: column; gap: 5px;\"><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-empty); background-color: var(--room-bg);\"></div><span>Empty</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-door); background-color: var(--room-bg);\"></div><span>Door</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-hidden-door); background-color: var(--room-bg);\"></div><span>Hidden Door</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-indestructible); background-color: var(--room-bg);\"></div><span>Indestructible</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-destructible); background-color: var(--room-bg);\"></div><span>Destructible</span></div></div></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

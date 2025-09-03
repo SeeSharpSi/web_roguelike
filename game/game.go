@@ -375,9 +375,9 @@ func (m *Map) MovePlayer(p *Player, action string) bool {
 	// Handle bomb placement
 	if action == "place_bomb" {
 		if m.PlaceBomb(currentPos, p) {
-			// Update bombs and move enemies
-			m.UpdateBombs()
+			// Move enemies first, then update bombs so enemies take damage if they move into blast radius
 			m.MoveEnemies(currentPos)
+			m.UpdateBombs(p)
 			return true
 		}
 		return false
@@ -495,35 +495,35 @@ func (m *Map) MovePlayer(p *Player, action string) bool {
 		// Explore rooms visible from the new position
 		m.ExploreVisibleRooms(newPos)
 
-		// Update bombs and move enemies after player movement
-		m.UpdateBombs()
+		// Move enemies first, then update bombs so enemies take damage if they move into blast radius
 		m.MoveEnemies(newPos)
+		m.UpdateBombs(p)
 	} else {
-		// Player didn't move, so update bombs and move enemies from current position
-		m.UpdateBombs()
+		// Move enemies first, then update bombs so enemies take damage if they move into blast radius
 		m.MoveEnemies(currentPos)
+		m.UpdateBombs(p)
 	}
 
 	return true
 }
 
 // UpdateBombs decrements bomb timers and explodes bombs when they reach 0
-func (m *Map) UpdateBombs() {
+func (m *Map) UpdateBombs(player *Player) {
 	for i := len(m.PlacedBombs) - 1; i >= 0; i-- {
 		bomb := &m.PlacedBombs[i]
 		bomb.TurnsLeft--
 
 		if bomb.TurnsLeft <= 0 {
 			// Bomb explodes - destroy adjacent destructible walls and doors
-			m.ExplodeBomb(bomb.Position)
+			m.ExplodeBomb(bomb.Position, player)
 			// Remove the bomb
 			m.PlacedBombs = append(m.PlacedBombs[:i], m.PlacedBombs[i+1:]...)
 		}
 	}
 }
 
-// ExplodeBomb destroys adjacent destructible walls and doors
-func (m *Map) ExplodeBomb(pos Pos) {
+// ExplodeBomb destroys adjacent destructible walls and doors and damages nearby entities
+func (m *Map) ExplodeBomb(pos Pos, player *Player) {
 	directions := []struct {
 		delta        Pos
 		bombWall     func(*Room) *Wall
@@ -533,6 +533,61 @@ func (m *Map) ExplodeBomb(pos Pos) {
 		{Pos{X: 0, Y: -1}, func(r *Room) *Wall { return &r.SWall }, func(r *Room) *Wall { return &r.NWall }}, // South
 		{Pos{X: 1, Y: 0}, func(r *Room) *Wall { return &r.EWall }, func(r *Room) *Wall { return &r.WWall }},  // East
 		{Pos{X: -1, Y: 0}, func(r *Room) *Wall { return &r.WWall }, func(r *Room) *Wall { return &r.EWall }}, // West
+	}
+
+	// Check for damage to player and enemies in affected areas
+	affectedPositions := []Pos{pos} // Include the bomb position
+	for _, dir := range directions {
+		adjacentPos := Pos{X: pos.X + dir.delta.X, Y: pos.Y + dir.delta.Y}
+		if adjacentPos.X >= 0 && adjacentPos.X < m.Width && adjacentPos.Y >= 0 && adjacentPos.Y < m.Length {
+			affectedPositions = append(affectedPositions, adjacentPos)
+		}
+	}
+
+	// Damage player if they're in an affected area
+	if player.Position.X == pos.X && player.Position.Y == pos.Y {
+		player.Health -= 5
+		if player.Health < 0 {
+			player.Health = 0
+		}
+	} else {
+		for _, adjPos := range affectedPositions[1:] { // Skip the bomb position since we already checked it
+			if player.Position.X == adjPos.X && player.Position.Y == adjPos.Y {
+				player.Health -= 5
+				if player.Health < 0 {
+					player.Health = 0
+				}
+				break
+			}
+		}
+	}
+
+	// Damage enemies in affected areas
+	for i := range m.Enemies {
+		enemy := &m.Enemies[i]
+		if !enemy.Alive {
+			continue
+		}
+
+		// Check if enemy is in bomb position
+		if enemy.Position.X == pos.X && enemy.Position.Y == pos.Y {
+			enemy.Health -= 2
+			if enemy.Health <= 0 {
+				enemy.Alive = false
+			}
+			continue
+		}
+
+		// Check if enemy is in adjacent positions
+		for _, adjPos := range affectedPositions[1:] {
+			if enemy.Position.X == adjPos.X && enemy.Position.Y == adjPos.Y {
+				enemy.Health -= 2
+				if enemy.Health <= 0 {
+					enemy.Alive = false
+				}
+				break
+			}
+		}
 	}
 
 	for _, dir := range directions {
@@ -663,7 +718,7 @@ func (m *Map) PlaceBomb(playerPos Pos, player *Player) bool {
 	// Place bomb at player's position
 	bomb := PlacedBomb{
 		Position:  playerPos,
-		TurnsLeft: 3,
+		TurnsLeft: 4,
 	}
 	m.PlacedBombs = append(m.PlacedBombs, bomb)
 

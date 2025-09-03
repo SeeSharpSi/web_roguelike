@@ -78,7 +78,7 @@ templ MapGrid(m game.Map, p game.Player) {
 						if hasPlayer {
 							<div style="width: 20px; height: 20px; background-color: var(--player-color); margin: 20px auto;"></div>
 						} else if enemyHealth > 0 {
-							{enemyHealth}
+							<span style="color: var(--enemy-color);">{enemyHealth}</span>
 						} else if hasPlacedBomb {
 							{bombTurns}
 						} else if hasBomb {
