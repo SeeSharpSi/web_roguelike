@@ -20,8 +20,6 @@ func wallColor(wallType string) string {
 		return "var(--wall-empty)"
 	case "door":
 		return "var(--wall-door)"
-	case "hidden_door":
-		return "var(--wall-hidden-door)"
 	case "indestructible":
 		return "var(--wall-indestructible)"
 	case "destructible":
@@ -63,7 +61,7 @@ func MapGrid(m game.Map, p game.Player) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(fmt.Sprintf("grid-template-columns: repeat(%d, 60px); grid-template-rows: repeat(%d, 60px);", m.Width, m.Length))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 32, Col: 122}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 30, Col: 122}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -91,7 +89,7 @@ func MapGrid(m game.Map, p game.Player) templ.Component {
 						"border-bottom-color: " + wallColor(room.SWall.Type) + ";" +
 						"border-left-color: " + wallColor(room.WWall.Type) + ";")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 49, Col: 63}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 47, Col: 63}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 					if templ_7745c5c3_Err != nil {
@@ -138,7 +136,7 @@ func MapGrid(m game.Map, p game.Player) templ.Component {
 						var templ_7745c5c3_Var4 string
 						templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(enemyHealth)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 81, Col: 60}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 79, Col: 60}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 						if templ_7745c5c3_Err != nil {
@@ -152,7 +150,7 @@ func MapGrid(m game.Map, p game.Player) templ.Component {
 						var templ_7745c5c3_Var5 string
 						templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(bombTurns)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 83, Col: 17}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 81, Col: 17}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 						if templ_7745c5c3_Err != nil {
@@ -221,14 +219,14 @@ func Map(m game.Map, p game.Player) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div style=\"margin-top: 20px; text-align: center;\"><div style=\"display: inline-block;\"><div style=\"margin-bottom: 10px;\"><button hx-get=\"/move?direction=north\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">↑</button></div><div><button hx-get=\"/move?direction=west\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">←</button> <button hx-get=\"/move?direction=east\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">→</button></div><div style=\"margin-top: 10px;\"><button hx-get=\"/move?direction=south\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">↓</button></div></div></div><div style=\"margin-top: 20px; text-align: center; font-size: 18px; font-weight: bold; color: var(--player-color);\">Health: ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div style=\"margin-top: 20px; text-align: center;\"><div style=\"display: inline-block;\"><div style=\"margin-bottom: 10px;\"><button hx-get=\"/move?direction=north\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">↑</button></div><div><button hx-get=\"/move?direction=west\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">←</button> <button hx-get=\"/move?direction=east\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">→</button></div><div style=\"margin-top: 10px;\"><button hx-get=\"/move?direction=south\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">↓</button></div></div></div><div style=\"margin-top: 15px; text-align: center;\"><button hx-get=\"/move?direction=place_bomb\" hx-target=\".game-map\" hx-swap=\"outerHTML\" style=\"width: 80px; height: 40px; background-color: var(--enemy-color); color: white; border: none; border-radius: 4px; font-weight: bold;\">💣 BOMB</button></div><div style=\"margin-top: 20px; text-align: center; font-size: 18px; font-weight: bold; color: var(--player-color);\">Health: ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(p.Health)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 207, Col: 18}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 214, Col: 18}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -241,13 +239,13 @@ func Map(m game.Map, p game.Player) templ.Component {
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(len(p.Items))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 211, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 218, Col: 21}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div><div style=\"margin-top: 20px; text-align: center;\"><div style=\"display: inline-block; text-align: left;\"><div style=\"font-weight: bold; margin-bottom: 10px;\">Wall Types:</div><div style=\"display: flex; flex-direction: column; gap: 5px;\"><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-empty); background-color: var(--room-bg);\"></div><span>Empty</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-door); background-color: var(--room-bg);\"></div><span>Door</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-hidden-door); background-color: var(--room-bg);\"></div><span>Hidden Door</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-indestructible); background-color: var(--room-bg);\"></div><span>Indestructible</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-destructible); background-color: var(--room-bg);\"></div><span>Destructible</span></div></div></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div><div style=\"margin-top: 20px; text-align: center;\"><div style=\"display: inline-block; text-align: left;\"><div style=\"font-weight: bold; margin-bottom: 10px;\">Wall Types:</div><div style=\"display: flex; flex-direction: column; gap: 5px;\"><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-empty); background-color: var(--room-bg);\"></div><span>Empty</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-door); background-color: var(--room-bg);\"></div><span>Door</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-indestructible); background-color: var(--room-bg);\"></div><span>Indestructible</span></div><div style=\"display: flex; align-items: center; gap: 10px;\"><div style=\"width: 20px; height: 20px; border: 2px solid var(--wall-destructible); background-color: var(--room-bg);\"></div><span>Destructible</span></div></div></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -53,7 +53,7 @@ type Room struct {
 	Dropped_Items []Item // Player dropped things
 }
 
-// Current types are "empty", "door", "hidden_door", "indestructible", "destructible"
+// Current types are "empty", "door", "indestructible", "destructible"
 type Wall struct {
 	Type   string
 	Health int
@@ -67,7 +67,7 @@ type Item struct {
 
 func (p *Player) Generate_player() {
 	p.Alive = true
-	p.Health = 30
+	p.Health = 15
 	p.Strength = float64(80+rand.N(21)) / 100
 	p.Stamina = 50 + rand.N(51)
 }
@@ -82,7 +82,7 @@ func (e *Enemy) Generate_enemy() {
 func (r *Room) Generate_room() {
 	// Use more reasonable wall types for initial generation
 	// Avoid "indestructible" as it creates dead ends
-	wall_types := []string{"empty", "door", "door", "door", "hidden_door", "destructible", "indestructible", "indestructible", "indestructible"}
+	wall_types := []string{"empty", "door", "destructible", "indestructible", "indestructible", "indestructible", "indestructible", "indestructible", "indestructible", "indestructible", "indestructible"}
 	r.NWall.Type = wall_types[rand.N(len(wall_types))]
 	r.NWall.Health = 50 + rand.N(51)
 	r.SWall.Type = wall_types[rand.N(len(wall_types))]
@@ -224,7 +224,7 @@ func (m *Map) Generate_map() {
 				enemy.Description = "A nasty little goblin"
 				m.Enemies = append(m.Enemies, enemy)
 			}
-			if roomCount%7 == 0 {
+			if roomCount%12 == 0 {
 				// Place a bomb at this room position
 				m.Bombs = append(m.Bombs, next_pos)
 			}
@@ -282,50 +282,58 @@ func (m *Map) synchronizeAdjacentWalls() {
 					adjacentIsPassage := adjacentWall.Type == "empty" || adjacentWall.Type == "door" || adjacentWall.Type == "destructible"
 
 					if currentIsPassage && adjacentIsPassage {
-						// Both are passage walls, synchronize to the more restrictive type
-						if dir.currentWall.Type == "empty" && adjacentWall.Type != "empty" {
-							dir.currentWall.Type = adjacentWall.Type
-							if adjacentWall.Type == "destructible" {
-								dir.currentWall.Health = adjacentWall.Health
-							}
-						} else if adjacentWall.Type == "empty" && dir.currentWall.Type != "empty" {
-							adjacentWall.Type = dir.currentWall.Type
-							if dir.currentWall.Type == "destructible" {
-								adjacentWall.Health = dir.currentWall.Health
-							}
-						} else if dir.currentWall.Type == "door" && adjacentWall.Type == "destructible" {
+						// Both are passage walls, ensure empty and destructible walls are properly paired
+						if dir.currentWall.Type == "empty" || adjacentWall.Type == "empty" {
+							// If either wall is empty, both must be empty
+							dir.currentWall.Type = "empty"
+							adjacentWall.Type = "empty"
+							dir.currentWall.Health = 0
+							adjacentWall.Health = 0
+						} else if dir.currentWall.Type == "destructible" || adjacentWall.Type == "destructible" {
+							// If either wall is destructible, both must be destructible
 							dir.currentWall.Type = "destructible"
 							adjacentWall.Type = "destructible"
-							// Keep higher health
+							// Use the higher health value
 							if dir.currentWall.Health > adjacentWall.Health {
 								adjacentWall.Health = dir.currentWall.Health
 							} else {
 								dir.currentWall.Health = adjacentWall.Health
 							}
-						} else if adjacentWall.Type == "door" && dir.currentWall.Type == "destructible" {
-							adjacentWall.Type = "destructible"
-							dir.currentWall.Type = "destructible"
-							// Keep higher health
-							if adjacentWall.Health > dir.currentWall.Health {
-								dir.currentWall.Health = adjacentWall.Health
-							} else {
-								adjacentWall.Health = dir.currentWall.Health
-							}
+						} else if dir.currentWall.Type == "door" && adjacentWall.Type != "door" {
+							dir.currentWall.Type = adjacentWall.Type
+						} else if adjacentWall.Type == "door" && dir.currentWall.Type != "door" {
+							adjacentWall.Type = dir.currentWall.Type
 						}
+						// Door-to-door pairing is already handled
 					} else if currentIsPassage && !adjacentIsPassage {
-						// Current is passage, adjacent is blocking - don't change passage
-						// Keep current wall as passage
+						// Current is passage, adjacent is blocking
+						if dir.currentWall.Type == "empty" {
+							// Empty walls must have corresponding empty walls
+							adjacentWall.Type = "empty"
+							adjacentWall.Health = 0
+						} else if dir.currentWall.Type == "destructible" {
+							// Destructible walls must have corresponding destructible walls
+							adjacentWall.Type = "destructible"
+							adjacentWall.Health = dir.currentWall.Health
+						}
+						// Keep current wall as passage (doors can exist without pairing)
 					} else if !currentIsPassage && adjacentIsPassage {
-						// Adjacent is passage, current is blocking - don't change passage
-						// Keep adjacent wall as passage
+						// Adjacent is passage, current is blocking
+						if adjacentWall.Type == "empty" {
+							// Empty walls must have corresponding empty walls
+							dir.currentWall.Type = "empty"
+							dir.currentWall.Health = 0
+						} else if adjacentWall.Type == "destructible" {
+							// Destructible walls must have corresponding destructible walls
+							dir.currentWall.Type = "destructible"
+							dir.currentWall.Health = adjacentWall.Health
+						}
+						// Keep adjacent wall as passage (doors can exist without pairing)
 					} else {
 						// Both are blocking walls, synchronize to more restrictive
 						if dir.currentWall.Type == "indestructible" || adjacentWall.Type == "indestructible" {
 							dir.currentWall.Type = "indestructible"
 							adjacentWall.Type = "indestructible"
-						} else if dir.currentWall.Type == "hidden_door" || adjacentWall.Type == "hidden_door" {
-							dir.currentWall.Type = "hidden_door"
-							adjacentWall.Type = "hidden_door"
 						}
 					}
 				}
@@ -609,14 +617,20 @@ func (m *Map) ExplodeBomb(pos Pos, player *Player) {
 		bombWall := dir.bombWall(&bombRoom)
 		adjacentWall := dir.adjacentWall(&adjacentRoom)
 
-		// Destroy destructible walls and doors on both sides
-		if bombWall != nil && (bombWall.Type == "destructible" || bombWall.Type == "door") {
+		// Destroy destructible walls on both sides (they must be paired)
+		if bombWall != nil && bombWall.Type == "destructible" {
 			bombWall.Type = "empty"
 			bombWall.Health = 0
 		}
-		if adjacentWall != nil && (adjacentWall.Type == "destructible" || adjacentWall.Type == "door") {
+		if adjacentWall != nil && adjacentWall.Type == "destructible" {
 			adjacentWall.Type = "empty"
 			adjacentWall.Health = 0
+		}
+
+		// Destroy doors only on the bomb side (doors don't need to be paired)
+		if bombWall != nil && bombWall.Type == "door" {
+			bombWall.Type = "empty"
+			bombWall.Health = 0
 		}
 
 		// Update both rooms in the map

@@ -12,8 +12,6 @@ func wallColor(wallType string) string {
 		return "var(--wall-empty)"
 	case "door":
 		return "var(--wall-door)"
-	case "hidden_door":
-		return "var(--wall-hidden-door)"
 	case "indestructible":
 		return "var(--wall-indestructible)"
 	case "destructible":
@@ -203,6 +201,15 @@ templ Map(m game.Map, p game.Player) {
 	</div>
 </div>
 
+<div style="margin-top: 15px; text-align: center;">
+	<button
+		hx-get="/move?direction=place_bomb"
+		hx-target=".game-map"
+		hx-swap="outerHTML"
+		style="width: 80px; height: 40px; background-color: var(--enemy-color); color: white; border: none; border-radius: 4px; font-weight: bold;"
+	>💣 BOMB</button>
+</div>
+
 <div style="margin-top: 20px; text-align: center; font-size: 18px; font-weight: bold; color: var(--player-color);">
 	Health: {p.Health}
 </div>
@@ -222,10 +229,6 @@ templ Map(m game.Map, p game.Player) {
 			<div style="display: flex; align-items: center; gap: 10px;">
 				<div style="width: 20px; height: 20px; border: 2px solid var(--wall-door); background-color: var(--room-bg);"></div>
 				<span>Door</span>
-			</div>
-			<div style="display: flex; align-items: center; gap: 10px;">
-				<div style="width: 20px; height: 20px; border: 2px solid var(--wall-hidden-door); background-color: var(--room-bg);"></div>
-				<span>Hidden Door</span>
 			</div>
 			<div style="display: flex; align-items: center; gap: 10px;">
 				<div style="width: 20px; height: 20px; border: 2px solid var(--wall-indestructible); background-color: var(--room-bg);"></div>
