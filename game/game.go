@@ -6,9 +6,20 @@ import "math/rand/v2"
 type Player struct {
 	Alive    bool
 	Health   int
-	Strength float64 // Stength is a multiplier
+	Strength float64 // Strength is a multiplier
 	Stamina  int
 	Position Pos
+	Items    []Item
+}
+
+type Enemy struct {
+	Alive       bool
+	Name        string
+	Description string
+	Health      int
+	Turns_alive int
+	Strength    float64 // Strength is a multiplier
+	Position    Pos
 }
 
 type Map struct {
@@ -30,6 +41,8 @@ type Room struct {
 	EWall Wall
 	WWall Wall
 	Items []Item
+
+	Dropped_Items []Item // Player dropped things
 }
 
 // Current types are "empty", "door", "hidden_door", "indestructible", "destructible"
@@ -39,6 +52,9 @@ type Wall struct {
 }
 
 type Item struct {
+	Name        string
+	Description string
+	Turns_alive int
 }
 
 func (p *Player) Generate_player() {
@@ -46,6 +62,12 @@ func (p *Player) Generate_player() {
 	p.Health = 83 + rand.N(18)
 	p.Strength = float64(80+rand.N(21)) / 100
 	p.Stamina = 50 + rand.N(51)
+}
+
+func (e *Enemy) Generate_enemy() {
+	e.Alive = true
+	e.Health = 83 + rand.N(18)
+	e.Strength = float64(80+rand.N(21)) / 100
 }
 
 // Also fixed the random wall type selection to include all types.
