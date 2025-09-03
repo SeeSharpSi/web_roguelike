@@ -2,56 +2,104 @@ package templ
 
 templ ThemeVariables(theme string) {
 	switch theme {
-	case "nord":
+  case "nord":
 		<style>
 			:root {
 				/* Palette - Nord */
 				--bg-primary: #2E3440;
 				--bg-secondary: #3B4252;
+				--bg-tertiary: #434C5E;
 				--text-primary: #ECEFF4;
 				--text-secondary: #D8DEE9;
 				--accent-primary: #88C0D0;
+				--accent-secondary: #81A1C1;
 				--accent-danger: #BF616A;
+				--accent-success: #A3BE8C;
+				--accent-warning: #EBCB8B;
 				--border-color: #4C566A;
+				--wall-empty: transparent;
+				--wall-door: #8FBCBB;
+				--wall-hidden-door: #5E81AC;
+				--wall-indestructible: #2E3440;
+				--wall-destructible: #BF616A;
+				--room-bg: #3B4252;
+				--room-unexplored: #434C5E;
+				--player-color: #EBCB8B;
 			}
 		</style>
-	case "solarized-light":
+  case "solarized-light":
 		<style>
 			:root {
 				/* Palette - Solarized Light */
 				--bg-primary: #fdf6e3;
 				--bg-secondary: #eee8d5;
+				--bg-tertiary: #f5f1e8;
 				--text-primary: #586e75;
 				--text-secondary: #839496;
 				--accent-primary: #268bd2;
+				--accent-secondary: #2aa198;
 				--accent-danger: #dc322f;
+				--accent-success: #859900;
+				--accent-warning: #b58900;
 				--border-color: #93a1a1;
+				--wall-empty: transparent;
+				--wall-door: #2aa198;
+				--wall-hidden-door: #6c71c4;
+				--wall-indestructible: #073642;
+				--wall-destructible: #dc322f;
+				--room-bg: #eee8d5;
+				--room-unexplored: #f5f1e8;
+				--player-color: #b58900;
 			}
 		</style>
-	case "rose-pine", "rosepine":
+  case "rose-pine", "rosepine":
 		<style>
 			:root {
 				/* Palette - Rosé Pine Moon */
 				--bg-primary: #232136;
 				--bg-secondary: #2a273f;
+				--bg-tertiary: #393552;
 				--text-primary: #e0def4;
 				--text-secondary: #908caa;
 				--accent-primary: #c4a7e7;
+				--accent-secondary: #f6c177;
 				--accent-danger: #ea9a97;
+				--accent-success: #9ccfd8;
+				--accent-warning: #f6c177;
 				--border-color: #393552;
+				--wall-empty: transparent;
+				--wall-door: #9ccfd8;
+				--wall-hidden-door: #c4a7e7;
+				--wall-indestructible: #232136;
+				--wall-destructible: #ea9a97;
+				--room-bg: #2a273f;
+				--room-unexplored: #393552;
+				--player-color: #f6c177;
 			}
 		</style>
-	default:
+  default:
 		<style>
 			:root {
 				/* Palette - Rosé Pine Moon (Default) */
 				--bg-primary: #232136;
 				--bg-secondary: #2a273f;
+				--bg-tertiary: #393552;
 				--text-primary: #e0def4;
 				--text-secondary: #908caa;
 				--accent-primary: #c4a7e7;
+				--accent-secondary: #f6c177;
 				--accent-danger: #ea9a97;
+				--accent-success: #9ccfd8;
+				--accent-warning: #f6c177;
 				--border-color: #393552;
+				--wall-empty: transparent;
+				--wall-door: #9ccfd8;
+				--wall-hidden-door: #c4a7e7;
+				--wall-indestructible: #232136;
+				--wall-destructible: #ea9a97;
+				--room-bg: #2a273f;
+				--room-unexplored: #393552;
+				--player-color: #f6c177;
 			}
 		</style>
 	}

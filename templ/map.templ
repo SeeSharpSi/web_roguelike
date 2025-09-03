@@ -5,27 +5,28 @@ import (
 	"seesharpsi/web_roguelike/game"
 )
 
-// wallColor is a helper function to map wall types to CSS colors.
+// wallColor is a helper function to map wall types to CSS variable names.
 func wallColor(wallType string) string {
 	switch wallType {
 	case "empty":
-		return "transparent"
+		return "var(--wall-empty)"
 	case "door":
-		return "saddlebrown"
+		return "var(--wall-door)"
 	case "hidden_door":
-		return "black" // A lighter brown for hidden doors
+		return "var(--wall-hidden-door)"
 	case "indestructible":
-		return "black"
+		return "var(--wall-indestructible)"
 	case "destructible":
-		return "firebrick"
+		return "var(--wall-destructible)"
 	default:
-		return "lightgrey" // A fallback for any unknown wall type
+		return "var(--wall-indestructible)" // A fallback for any unknown wall type
 	}
 }
 
 templ MapGrid(m game.Map, p game.Player) {
 	// Create the grid container.
 	// We use an inline style to set the grid dimensions based on the map's width and length.
+	@ThemeVariables("rose-pine")
 	<div
 		class="map-grid"
 		style={ fmt.Sprintf("grid-template-columns: repeat(%d, 60px); grid-template-rows: repeat(%d, 60px);", m.Width, m.Length) }
@@ -64,11 +65,11 @@ templ MapGrid(m game.Map, p game.Player) {
 
 templ Map(m game.Map, p game.Player) {
 	<script type="text/javascript" src="/static/htmx.min.js"></script>
+	@ThemeVariables("rose-pine")
 	<style>
 		.map-grid {
 			display: grid;
-			/** border: 2px solid #333; **/
-			background-color: #f0f0f0;
+			background-color: var(--bg-primary);
             max-width: fit-content;
             gap: 2px;
 			// The grid dimensions are set dynamically via an inline style attribute.
@@ -79,7 +80,7 @@ templ Map(m game.Map, p game.Player) {
 			box-sizing: border-box; /* Ensures padding and border are included in the element's total width and height */
 		}
 		.room-cell {
-			background-color: #fff;
+			background-color: var(--room-bg);
 			border-style: solid;
 			border-width: 2px; /* A nice, thick border to be visible */
 			display: flex;
@@ -87,10 +88,10 @@ templ Map(m game.Map, p game.Player) {
 			justify-content: center;
 			font-weight: bold;
 			font-size: 18px;
-			color: var(--accent-danger, #ea9a97);
+			color: var(--player-color);
 		}
 		.empty-cell {
-			background-color: #ccc;
+			background-color: var(--room-unexplored);
 		}
 	</style>
 
