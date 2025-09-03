@@ -23,13 +23,19 @@ type Enemy struct {
 }
 
 type Map struct {
-	Width    int
-	Length   int
-	Rooms    map[Pos]Room
-	StartPos Pos
-	Explored map[Pos]*Room
-	Enemies  []Enemy
-	Bombs    []Pos // Positions of bomb items
+	Width       int
+	Length      int
+	Rooms       map[Pos]Room
+	StartPos    Pos
+	Explored    map[Pos]*Room
+	Enemies     []Enemy
+	Bombs       []Pos // Positions of bomb items
+	PlacedBombs []PlacedBomb
+}
+
+type PlacedBomb struct {
+	Position  Pos
+	TurnsLeft int
 }
 
 type Pos struct {
@@ -94,8 +100,9 @@ func (m *Map) Generate_map() {
 	m.Length = 9 + rand.N(5) // Length will be between 7 and 10
 	m.Rooms = make(map[Pos]Room)
 	m.Explored = make(map[Pos]*Room)
-	m.Enemies = make([]Enemy, 0) // Initialize enemies slice
-	m.Bombs = make([]Pos, 0)     // Initialize bombs slice
+	m.Enemies = make([]Enemy, 0)          // Initialize enemies slice
+	m.Bombs = make([]Pos, 0)              // Initialize bombs slice
+	m.PlacedBombs = make([]PlacedBomb, 0) // Initialize placed bombs slice
 
 	// Room counter for enemy and bomb generation
 	roomCount := 0
@@ -360,11 +367,25 @@ func (m *Map) makeBoundaryWallsIndestructible() {
 	}
 }
 
-// MovePlayer attempts to move the player in the specified direction.
-// Returns true if the move was successful, false otherwise.
-func (m *Map) MovePlayer(p *Player, direction string) bool {
+// MovePlayer attempts to move the player in the specified direction or place a bomb.
+// Returns true if the action was successful, false otherwise.
+func (m *Map) MovePlayer(p *Player, action string) bool {
 	currentPos := p.Position
+
+	// Handle bomb placement
+	if action == "place_bomb" {
+		if m.PlaceBomb(currentPos, p) {
+			// Update bombs and move enemies
+			m.UpdateBombs()
+			m.MoveEnemies(currentPos)
+			return true
+		}
+		return false
+	}
+
+	// Handle movement
 	var newPos Pos
+	direction := action
 
 	// Calculate new position based on direction
 	switch direction {
@@ -474,14 +495,95 @@ func (m *Map) MovePlayer(p *Player, direction string) bool {
 		// Explore rooms visible from the new position
 		m.ExploreVisibleRooms(newPos)
 
-		// Move all enemies after player movement
+		// Update bombs and move enemies after player movement
+		m.UpdateBombs()
 		m.MoveEnemies(newPos)
 	} else {
-		// Player didn't move, so use current position for enemy movement
+		// Player didn't move, so update bombs and move enemies from current position
+		m.UpdateBombs()
 		m.MoveEnemies(currentPos)
 	}
 
 	return true
+}
+
+// UpdateBombs decrements bomb timers and explodes bombs when they reach 0
+func (m *Map) UpdateBombs() {
+	for i := len(m.PlacedBombs) - 1; i >= 0; i-- {
+		bomb := &m.PlacedBombs[i]
+		bomb.TurnsLeft--
+
+		if bomb.TurnsLeft <= 0 {
+			// Bomb explodes - destroy adjacent destructible walls and doors
+			m.ExplodeBomb(bomb.Position)
+			// Remove the bomb
+			m.PlacedBombs = append(m.PlacedBombs[:i], m.PlacedBombs[i+1:]...)
+		}
+	}
+}
+
+// ExplodeBomb destroys adjacent destructible walls and doors
+func (m *Map) ExplodeBomb(pos Pos) {
+	directions := []struct {
+		delta        Pos
+		bombWall     func(*Room) *Wall
+		adjacentWall func(*Room) *Wall
+	}{
+		{Pos{X: 0, Y: 1}, func(r *Room) *Wall { return &r.NWall }, func(r *Room) *Wall { return &r.SWall }},  // North
+		{Pos{X: 0, Y: -1}, func(r *Room) *Wall { return &r.SWall }, func(r *Room) *Wall { return &r.NWall }}, // South
+		{Pos{X: 1, Y: 0}, func(r *Room) *Wall { return &r.EWall }, func(r *Room) *Wall { return &r.WWall }},  // East
+		{Pos{X: -1, Y: 0}, func(r *Room) *Wall { return &r.WWall }, func(r *Room) *Wall { return &r.EWall }}, // West
+	}
+
+	for _, dir := range directions {
+		adjacentPos := Pos{X: pos.X + dir.delta.X, Y: pos.Y + dir.delta.Y}
+
+		// Check if adjacent position is valid
+		if adjacentPos.X < 0 || adjacentPos.X >= m.Width || adjacentPos.Y < 0 || adjacentPos.Y >= m.Length {
+			continue
+		}
+
+		bombRoom, bombExists := m.Rooms[pos]
+		adjacentRoom, adjacentExists := m.Rooms[adjacentPos]
+
+		if !bombExists || !adjacentExists {
+			continue
+		}
+
+		// Get the walls that need to be destroyed
+		bombWall := dir.bombWall(&bombRoom)
+		adjacentWall := dir.adjacentWall(&adjacentRoom)
+
+		// Destroy destructible walls and doors on both sides
+		if bombWall != nil && (bombWall.Type == "destructible" || bombWall.Type == "door") {
+			bombWall.Type = "empty"
+			bombWall.Health = 0
+		}
+		if adjacentWall != nil && (adjacentWall.Type == "destructible" || adjacentWall.Type == "door") {
+			adjacentWall.Type = "empty"
+			adjacentWall.Health = 0
+		}
+
+		// Update both rooms in the map
+		m.Rooms[pos] = bombRoom
+		m.Rooms[adjacentPos] = adjacentRoom
+
+		// Update the explored map
+		// Only update explored rooms that the player can currently see
+		if _, bombExplored := m.Explored[pos]; bombExplored {
+			m.Explored[pos] = &bombRoom
+			// Only update adjacent room if it's already explored
+			if _, adjacentExplored := m.Explored[adjacentPos]; adjacentExplored {
+				m.Explored[adjacentPos] = &adjacentRoom
+			}
+			// Don't add new rooms to explored - let ExploreVisibleRooms handle that
+		} else {
+			// If bomb room is not explored, only update adjacent room if it's already explored
+			if _, adjacentExplored := m.Explored[adjacentPos]; adjacentExplored {
+				m.Explored[adjacentPos] = &adjacentRoom
+			}
+		}
+	}
 }
 
 // GetValidEnemyMoves returns a list of valid directions an enemy can move from its current position.
@@ -546,6 +648,26 @@ func (m *Map) GetValidEnemyMoves(enemyPos Pos) []string {
 	}
 
 	return validMoves
+}
+
+// PlaceBomb places a bomb at the player's current position if they have bombs
+func (m *Map) PlaceBomb(playerPos Pos, player *Player) bool {
+	// Check if player has bombs
+	if len(player.Items) == 0 {
+		return false // No bombs to place
+	}
+
+	// Remove one bomb from inventory
+	player.Items = player.Items[:len(player.Items)-1]
+
+	// Place bomb at player's position
+	bomb := PlacedBomb{
+		Position:  playerPos,
+		TurnsLeft: 3,
+	}
+	m.PlacedBombs = append(m.PlacedBombs, bomb)
+
+	return true
 }
 
 // MoveEnemies moves all living enemies in random valid directions

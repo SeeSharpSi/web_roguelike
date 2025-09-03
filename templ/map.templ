@@ -65,11 +65,22 @@ templ MapGrid(m game.Map, p game.Player) {
 								{{ break }}
 							}
 						}
+						{{ hasPlacedBomb := false }}
+						{{ bombTurns := 0 }}
+						for _, placedBomb := range m.PlacedBombs {
+							if placedBomb.Position.X == current_pos.X && placedBomb.Position.Y == current_pos.Y {
+								{{ hasPlacedBomb = true }}
+								{{ bombTurns = placedBomb.TurnsLeft }}
+								{{ break }}
+							}
+						}
 
 						if hasPlayer {
 							<div style="width: 20px; height: 20px; background-color: var(--player-color); margin: 20px auto;"></div>
 						} else if enemyHealth > 0 {
 							{enemyHealth}
+						} else if hasPlacedBomb {
+							{bombTurns}
 						} else if hasBomb {
 							B
 						}
@@ -93,20 +104,24 @@ templ Map(m game.Map, p game.Player) {
 
 				switch(event.key) {
 					case 'ArrowUp':
-					case 'k':
+					case 'k':           // Vim: up
 						direction = 'north';
 						break;
 					case 'ArrowDown':
-					case 'j':
+					case 'j':           // Vim: down
 						direction = 'south';
 						break;
 					case 'ArrowLeft':
-					case 'h':
+					case 'h':           // Vim: left
 						direction = 'west';
 						break;
 					case 'ArrowRight':
-					case 'l':
+					case 'l':           // Vim: right
 						direction = 'east';
+						break;
+					case ' ':           // Spacebar for bomb placement
+					case 'b':           // 'b' for bomb placement
+						direction = 'place_bomb';
 						break;
 				}
 

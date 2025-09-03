@@ -116,6 +116,15 @@ func MapGrid(m game.Map, p game.Player) templ.Component {
 							break
 						}
 					}
+					hasPlacedBomb := false
+					bombTurns := 0
+					for _, placedBomb := range m.PlacedBombs {
+						if placedBomb.Position.X == current_pos.X && placedBomb.Position.Y == current_pos.Y {
+							hasPlacedBomb = true
+							bombTurns = placedBomb.TurnsLeft
+							break
+						}
+					}
 					if hasPlayer {
 						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<div style=\"width: 20px; height: 20px; background-color: var(--player-color); margin: 20px auto;\"></div>")
 						if templ_7745c5c3_Err != nil {
@@ -125,9 +134,19 @@ func MapGrid(m game.Map, p game.Player) templ.Component {
 						var templ_7745c5c3_Var4 string
 						templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(enemyHealth)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 72, Col: 19}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 81, Col: 19}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+					} else if hasPlacedBomb {
+						var templ_7745c5c3_Var5 string
+						templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(bombTurns)
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 83, Col: 17}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -173,12 +192,12 @@ func Map(m game.Map, p game.Player) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var5 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var5 == nil {
-			templ_7745c5c3_Var5 = templ.NopComponent
+		templ_7745c5c3_Var6 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var6 == nil {
+			templ_7745c5c3_Var6 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"game-map\"><script type=\"text/javascript\" src=\"/static/htmx.min.js\"></script><script>\n\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\tdocument.addEventListener('keydown', function(event) {\n\t\t\t\tlet direction = null;\n\n\t\t\t\tswitch(event.key) {\n\t\t\t\t\tcase 'ArrowUp':\n\t\t\t\t\tcase 'k':\n\t\t\t\t\t\tdirection = 'north';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowDown':\n\t\t\t\t\tcase 'j':\n\t\t\t\t\t\tdirection = 'south';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowLeft':\n\t\t\t\t\tcase 'h':\n\t\t\t\t\t\tdirection = 'west';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowRight':\n\t\t\t\t\tcase 'l':\n\t\t\t\t\t\tdirection = 'east';\n\t\t\t\t\t\tbreak;\n\t\t\t\t}\n\n\t\t\t\tif (direction) {\n\t\t\t\t\tevent.preventDefault();\n\t\t\t\t\t// Trigger HTMX request\n\t\t\t\t\thtmx.ajax('GET', '/move?direction=' + direction, {\n\t\t\t\t\t\ttarget: '.game-map',\n\t\t\t\t\t\tswap: 'outerHTML'\n\t\t\t\t\t});\n\t\t\t\t}\n\t\t\t});\n\t\t});\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"game-map\"><script type=\"text/javascript\" src=\"/static/htmx.min.js\"></script><script>\n\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\tdocument.addEventListener('keydown', function(event) {\n\t\t\t\tlet direction = null;\n\n\t\t\t\tswitch(event.key) {\n\t\t\t\t\tcase 'ArrowUp':\n\t\t\t\t\tcase 'k':           // Vim: up\n\t\t\t\t\t\tdirection = 'north';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowDown':\n\t\t\t\t\tcase 'j':           // Vim: down\n\t\t\t\t\t\tdirection = 'south';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowLeft':\n\t\t\t\t\tcase 'h':           // Vim: left\n\t\t\t\t\t\tdirection = 'west';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowRight':\n\t\t\t\t\tcase 'l':           // Vim: right\n\t\t\t\t\t\tdirection = 'east';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase ' ':           // Spacebar for bomb placement\n\t\t\t\t\tcase 'b':           // 'b' for bomb placement\n\t\t\t\t\t\tdirection = 'place_bomb';\n\t\t\t\t\t\tbreak;\n\t\t\t\t}\n\n\t\t\t\tif (direction) {\n\t\t\t\t\tevent.preventDefault();\n\t\t\t\t\t// Trigger HTMX request\n\t\t\t\t\thtmx.ajax('GET', '/move?direction=' + direction, {\n\t\t\t\t\t\ttarget: '.game-map',\n\t\t\t\t\t\tswap: 'outerHTML'\n\t\t\t\t\t});\n\t\t\t\t}\n\t\t\t});\n\t\t});\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -198,12 +217,12 @@ func Map(m game.Map, p game.Player) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var6 string
-		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(p.Health)
+		var templ_7745c5c3_Var7 string
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(p.Health)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 192, Col: 18}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 207, Col: 18}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -211,12 +230,12 @@ func Map(m game.Map, p game.Player) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var7 string
-		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(len(p.Items))
+		var templ_7745c5c3_Var8 string
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(len(p.Items))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 196, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 211, Col: 21}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
