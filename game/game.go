@@ -29,6 +29,7 @@ type Map struct {
 	StartPos Pos
 	Explored map[Pos]*Room
 	Enemies  []Enemy
+	Bombs    []Pos // Positions of bomb items
 }
 
 type Pos struct {
@@ -94,8 +95,9 @@ func (m *Map) Generate_map() {
 	m.Rooms = make(map[Pos]Room)
 	m.Explored = make(map[Pos]*Room)
 	m.Enemies = make([]Enemy, 0) // Initialize enemies slice
+	m.Bombs = make([]Pos, 0)     // Initialize bombs slice
 
-	// Room counter for enemy generation
+	// Room counter for enemy and bomb generation
 	roomCount := 0
 
 	// A stack to keep track of the path for backtracking
@@ -114,7 +116,7 @@ func (m *Map) Generate_map() {
 	m.Rooms[start_pos] = firstRoom
 	stack = append(stack, start_pos)
 
-	// Increment room count and check for enemy generation
+	// Increment room count and check for enemy and bomb generation
 	roomCount++
 	if roomCount%15 == 0 {
 		var enemy Enemy
@@ -123,6 +125,10 @@ func (m *Map) Generate_map() {
 		enemy.Name = "Goblin"
 		enemy.Description = "A nasty little goblin"
 		m.Enemies = append(m.Enemies, enemy)
+	}
+	if roomCount%7 == 0 {
+		// Place a bomb at this room position
+		m.Bombs = append(m.Bombs, start_pos)
 	}
 
 	// 3. This loop continues until we've backtracked all the way to the start.
@@ -201,7 +207,7 @@ func (m *Map) Generate_map() {
 			m.Rooms[next_pos] = newRoom
 			// --- END of NEW LOGIC ---
 
-			// Increment room count and check for enemy generation
+			// Increment room count and check for enemy and bomb generation
 			roomCount++
 			if roomCount%15 == 0 {
 				var enemy Enemy
@@ -210,6 +216,10 @@ func (m *Map) Generate_map() {
 				enemy.Name = "Goblin"
 				enemy.Description = "A nasty little goblin"
 				m.Enemies = append(m.Enemies, enemy)
+			}
+			if roomCount%7 == 0 {
+				// Place a bomb at this room position
+				m.Bombs = append(m.Bombs, next_pos)
 			}
 
 			// Add the new position to the stack to continue the path.
@@ -433,6 +443,23 @@ func (m *Map) MovePlayer(p *Player, direction string) bool {
 	if !crossingDetected {
 		// Move is valid, update player position
 		p.Position = newPos
+
+		// Check for bombs at the new position and collect them
+		for i := len(m.Bombs) - 1; i >= 0; i-- {
+			bombPos := m.Bombs[i]
+			if bombPos.X == newPos.X && bombPos.Y == newPos.Y {
+				// Add bomb to player's inventory
+				bombItem := Item{
+					Name:        "Bomb",
+					Description: "A powerful explosive device",
+					Turns_alive: 0, // Bombs don't decay
+				}
+				p.Items = append(p.Items, bombItem)
+
+				// Remove bomb from map
+				m.Bombs = append(m.Bombs[:i], m.Bombs[i+1:]...)
+			}
+		}
 	}
 
 	// Only explore and move enemies if player actually moved

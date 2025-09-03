@@ -58,11 +58,20 @@ templ MapGrid(m game.Map, p game.Player) {
 								{{ break }}
 							}
 						}
+						{{ hasBomb := false }}
+						for _, bombPos := range m.Bombs {
+							if bombPos.X == current_pos.X && bombPos.Y == current_pos.Y {
+								{{ hasBomb = true }}
+								{{ break }}
+							}
+						}
 
 						if hasPlayer {
 							<div style="width: 20px; height: 20px; background-color: var(--player-color); margin: 20px auto;"></div>
 						} else if enemyHealth > 0 {
 							{enemyHealth}
+						} else if hasBomb {
+							B
 						}
 					</div>
 				} else {
@@ -84,15 +93,19 @@ templ Map(m game.Map, p game.Player) {
 
 				switch(event.key) {
 					case 'ArrowUp':
+					case 'k':
 						direction = 'north';
 						break;
 					case 'ArrowDown':
+					case 'j':
 						direction = 'south';
 						break;
 					case 'ArrowLeft':
+					case 'h':
 						direction = 'west';
 						break;
 					case 'ArrowRight':
+					case 'l':
 						direction = 'east';
 						break;
 				}
@@ -177,6 +190,10 @@ templ Map(m game.Map, p game.Player) {
 
 <div style="margin-top: 20px; text-align: center; font-size: 18px; font-weight: bold; color: var(--player-color);">
 	Health: {p.Health}
+</div>
+
+<div style="margin-top: 10px; text-align: center; font-size: 16px; color: var(--text-secondary);">
+	Bombs: {len(p.Items)}
 </div>
 
 <div style="margin-top: 20px; text-align: center;">
