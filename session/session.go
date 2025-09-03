@@ -48,6 +48,9 @@ func (m *Manager) CreateSession() string {
 	startingRoom := new_map.Rooms[new_player.Position]
 	new_map.Explored[new_player.Position] = &startingRoom
 
+	// Pre-calculate enemy movements for the initial display
+	new_map.PreCalculateEnemyMoves(new_player.Position)
+
 	m.sessions[id] = &Session{
 		ID: id,
 		//GameState:    &story.GameState{},

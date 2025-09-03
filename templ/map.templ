@@ -50,9 +50,11 @@ templ MapGrid(m game.Map, p game.Player) {
 						// Check what's in this room
 						{{ hasPlayer := current_pos.X == p.Position.X && current_pos.Y == p.Position.Y }}
 						{{ enemyHealth := 0 }}
+						{{ enemyDirection := "" }}
 						for _, enemy := range m.Enemies {
 							if enemy.Position.X == current_pos.X && enemy.Position.Y == current_pos.Y && enemy.Alive {
 								{{ enemyHealth = enemy.Health }}
+								{{ enemyDirection = enemy.NextMove }}
 								{{ break }}
 							}
 						}
@@ -76,7 +78,22 @@ templ MapGrid(m game.Map, p game.Player) {
 						if hasPlayer {
 							<div style="width: 20px; height: 20px; background-color: var(--player-color); margin: 20px auto;"></div>
 						} else if enemyHealth > 0 {
-							<span style="color: var(--enemy-color);">{enemyHealth}</span>
+							<div style="position: relative; display: inline-block;">
+								<span style="color: var(--enemy-color);">{enemyHealth}</span>
+								if enemyDirection != "" {
+									<span style="position: absolute; top: -8px; right: -8px; font-size: 10px; color: var(--enemy-color);">
+										if enemyDirection == "north" {
+											↑
+										} else if enemyDirection == "south" {
+											↓
+										} else if enemyDirection == "east" {
+											→
+										} else if enemyDirection == "west" {
+											←
+										}
+									</span>
+								}
+							</div>
 						} else if hasPlacedBomb {
 							{bombTurns}
 						} else if hasBomb {

@@ -20,6 +20,7 @@ type Enemy struct {
 	Turns_alive int
 	Strength    float64 // Strength is a multiplier
 	Position    Pos
+	NextMove    string // Direction the enemy will move: "north", "south", "east", "west", or "" for no move
 }
 
 type Map struct {
@@ -76,6 +77,7 @@ func (e *Enemy) Generate_enemy() {
 	e.Alive = true
 	e.Health = 3 + rand.N(2)
 	e.Strength = float64(80+rand.N(21)) / 100
+	e.NextMove = ""
 }
 
 // Also fixed the random wall type selection to include all types.
@@ -386,6 +388,9 @@ func (m *Map) MovePlayer(p *Player, action string) bool {
 			// Move enemies first, then update bombs so enemies take damage if they move into blast radius
 			m.MoveEnemies(currentPos)
 			m.UpdateBombs(p)
+
+			// Pre-calculate enemy movements for the next turn
+			m.PreCalculateEnemyMoves(currentPos)
 			return true
 		}
 		return false
@@ -506,10 +511,16 @@ func (m *Map) MovePlayer(p *Player, action string) bool {
 		// Move enemies first, then update bombs so enemies take damage if they move into blast radius
 		m.MoveEnemies(newPos)
 		m.UpdateBombs(p)
+
+		// Pre-calculate enemy movements for the next turn
+		m.PreCalculateEnemyMoves(newPos)
 	} else {
 		// Move enemies first, then update bombs so enemies take damage if they move into blast radius
 		m.MoveEnemies(currentPos)
 		m.UpdateBombs(p)
+
+		// Pre-calculate enemy movements for the next turn
+		m.PreCalculateEnemyMoves(currentPos)
 	}
 
 	return true
@@ -739,11 +750,12 @@ func (m *Map) PlaceBomb(playerPos Pos, player *Player) bool {
 	return true
 }
 
-// MoveEnemies moves all living enemies in random valid directions
-func (m *Map) MoveEnemies(playerPos Pos) {
+// PreCalculateEnemyMoves determines the direction each enemy will move for the NEXT turn.
+func (m *Map) PreCalculateEnemyMoves(playerPos Pos) {
 	for i := range m.Enemies {
 		enemy := &m.Enemies[i]
 		if !enemy.Alive {
+			enemy.NextMove = ""
 			continue
 		}
 
@@ -752,16 +764,28 @@ func (m *Map) MoveEnemies(playerPos Pos) {
 
 		// If no valid moves, enemy stays put
 		if len(validMoves) == 0 {
+			enemy.NextMove = ""
 			continue
 		}
 
 		// Choose a random valid direction
 		randomIndex := rand.N(len(validMoves))
 		chosenDirection := validMoves[randomIndex]
+		enemy.NextMove = chosenDirection
+	}
+}
 
-		// Calculate new position
+// MoveEnemies moves all living enemies according to their pre-calculated directions
+func (m *Map) MoveEnemies(playerPos Pos) {
+	for i := range m.Enemies {
+		enemy := &m.Enemies[i]
+		if !enemy.Alive || enemy.NextMove == "" {
+			continue
+		}
+
+		// Calculate new position based on pre-calculated direction
 		var newPos Pos
-		switch chosenDirection {
+		switch enemy.NextMove {
 		case "north":
 			newPos = Pos{X: enemy.Position.X, Y: enemy.Position.Y + 1}
 		case "south":
@@ -770,6 +794,8 @@ func (m *Map) MoveEnemies(playerPos Pos) {
 			newPos = Pos{X: enemy.Position.X + 1, Y: enemy.Position.Y}
 		case "west":
 			newPos = Pos{X: enemy.Position.X - 1, Y: enemy.Position.Y}
+		default:
+			continue // Invalid direction
 		}
 
 		// Check if the new position would be occupied by the player
@@ -780,6 +806,7 @@ func (m *Map) MoveEnemies(playerPos Pos) {
 
 		// Update enemy position
 		enemy.Position = newPos
+		// Don't clear NextMove - it will be overwritten on the next PreCalculateEnemyMoves call
 	}
 }
 
