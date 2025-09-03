@@ -13,7 +13,7 @@ func wallColor(wallType string) string {
 	case "door":
 		return "saddlebrown"
 	case "hidden_door":
-		return "peru" // A lighter brown for hidden doors
+		return "black" // A lighter brown for hidden doors
 	case "indestructible":
 		return "black"
 	case "destructible":
@@ -23,36 +23,7 @@ func wallColor(wallType string) string {
 	}
 }
 
-templ Map(m game.Map, p game.Player) {
-	<style>
-		.map-grid {
-			display: grid;
-			/** border: 2px solid #333; **/
-			background-color: #f0f0f0;
-            max-width: fit-content; 
-			// The grid dimensions are set dynamically via an inline style attribute.
-		}
-		.room-cell, .empty-cell {
-			width: 60px;
-			height: 60px;
-			box-sizing: border-box; /* Ensures padding and border are included in the element's total width and height */
-		}
-		.room-cell {
-			background-color: #fff;
-			border-style: solid;
-			border-width: 3px; /* A nice, thick border to be visible */
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			font-weight: bold;
-			font-size: 18px;
-			color: var(--accent-danger, #ea9a97);
-		}
-		.empty-cell {
-			background-color: #ccc;
-		}
-	</style>
-
+templ MapGrid(m game.Map, p game.Player) {
 	// Create the grid container.
 	// We use an inline style to set the grid dimensions based on the map's width and length.
 	<div
@@ -86,8 +57,78 @@ templ Map(m game.Map, p game.Player) {
 					// If no room has been explored, create an empty, grayed-out cell as a placeholder.
 					<div class="empty-cell"></div>
 				}
-			}
 		}
+	}
+</div>
+}
+
+templ Map(m game.Map, p game.Player) {
+	<script type="text/javascript" src="/static/htmx.min.js"></script>
+	<style>
+		.map-grid {
+			display: grid;
+			/** border: 2px solid #333; **/
+			background-color: #f0f0f0;
+            max-width: fit-content;
+            gap: 2px;
+			// The grid dimensions are set dynamically via an inline style attribute.
+		}
+		.room-cell, .empty-cell {
+			width: 60px;
+			height: 60px;
+			box-sizing: border-box; /* Ensures padding and border are included in the element's total width and height */
+		}
+		.room-cell {
+			background-color: #fff;
+			border-style: solid;
+			border-width: 2px; /* A nice, thick border to be visible */
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-weight: bold;
+			font-size: 18px;
+			color: var(--accent-danger, #ea9a97);
+		}
+		.empty-cell {
+			background-color: #ccc;
+		}
+	</style>
+
+	@MapGrid(m, p)
+
+<div style="margin-top: 20px; text-align: center;">
+	<div style="display: inline-block;">
+		<div style="margin-bottom: 10px;">
+			<button
+				hx-get="/move?direction=north"
+				hx-target=".map-grid"
+				hx-swap="outerHTML"
+				style="width: 60px; height: 40px; margin: 0 5px;"
+			>↑</button>
+		</div>
+		<div>
+			<button
+				hx-get="/move?direction=west"
+				hx-target=".map-grid"
+				hx-swap="outerHTML"
+				style="width: 60px; height: 40px; margin: 0 5px;"
+			>←</button>
+			<button
+				hx-get="/move?direction=east"
+				hx-target=".map-grid"
+				hx-swap="outerHTML"
+				style="width: 60px; height: 40px; margin: 0 5px;"
+			>→</button>
+		</div>
+		<div style="margin-top: 10px;">
+			<button
+				hx-get="/move?direction=south"
+				hx-target=".map-grid"
+				hx-swap="outerHTML"
+				style="width: 60px; height: 40px; margin: 0 5px;"
+			>↓</button>
+		</div>
 	</div>
+</div>
 }
 

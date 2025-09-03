@@ -131,7 +131,8 @@ func (m *Map) Generate_map() {
 			newRoom.Generate_room()
 
 			// Define the types of walls that allow passage.
-			passage_wall_types := []string{"empty", "door", "destructible"}
+			// passage_wall_types := []string{"empty", "door", "destructible"}
+			passage_wall_types := []string{"empty"}
 			passage_type := passage_wall_types[rand.N(len(passage_wall_types))]
 
 			// Create a shared wall that represents the new passage.
@@ -168,4 +169,66 @@ func (m *Map) Generate_map() {
 			stack = stack[:len(stack)-1]
 		}
 	}
+}
+
+// MovePlayer attempts to move the player in the specified direction.
+// Returns true if the move was successful, false otherwise.
+func (m *Map) MovePlayer(p *Player, direction string) bool {
+	currentPos := p.Position
+	var newPos Pos
+
+	// Calculate new position based on direction
+	switch direction {
+	case "north":
+		newPos = Pos{X: currentPos.X, Y: currentPos.Y + 1}
+	case "south":
+		newPos = Pos{X: currentPos.X, Y: currentPos.Y - 1}
+	case "east":
+		newPos = Pos{X: currentPos.X + 1, Y: currentPos.Y}
+	case "west":
+		newPos = Pos{X: currentPos.X - 1, Y: currentPos.Y}
+	default:
+		return false // Invalid direction
+	}
+
+	// Check if new position is within map bounds
+	if newPos.X < 0 || newPos.X >= m.Width || newPos.Y < 0 || newPos.Y >= m.Length {
+		return false
+	}
+
+	// Check if there's a room at the current position
+	currentRoom, exists := m.Rooms[currentPos]
+	if !exists {
+		return false
+	}
+
+	// Check if the wall in the direction of movement allows passage
+	var wallType string
+	switch direction {
+	case "north":
+		wallType = currentRoom.NWall.Type
+	case "south":
+		wallType = currentRoom.SWall.Type
+	case "east":
+		wallType = currentRoom.EWall.Type
+	case "west":
+		wallType = currentRoom.WWall.Type
+	}
+
+	// Only allow movement through "empty" walls (and "door" for now, as doors should be passable)
+	if wallType != "empty" && wallType != "door" {
+		return false
+	}
+
+	// Move is valid, update player position
+	p.Position = newPos
+
+	// Explore the new room if it hasn't been explored yet
+	if _, explored := m.Explored[newPos]; !explored {
+		if room, exists := m.Rooms[newPos]; exists {
+			m.Explored[newPos] = &room
+		}
+	}
+
+	return true
 }
