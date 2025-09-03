@@ -51,18 +51,18 @@ templ MapGrid(m game.Map, p game.Player) {
 					>
 						// Check what's in this room
 						{{ hasPlayer := current_pos.X == p.Position.X && current_pos.Y == p.Position.Y }}
-						{{ hasEnemy := false }}
+						{{ enemyHealth := 0 }}
 						for _, enemy := range m.Enemies {
 							if enemy.Position.X == current_pos.X && enemy.Position.Y == current_pos.Y && enemy.Alive {
-								{{ hasEnemy = true }}
+								{{ enemyHealth = enemy.Health }}
 								{{ break }}
 							}
 						}
 
 						if hasPlayer {
-							P
-						} else if hasEnemy {
-							E
+							<div style="width: 20px; height: 20px; background-color: var(--player-color); margin: 20px auto;"></div>
+						} else if enemyHealth > 0 {
+							{enemyHealth}
 						}
 					</div>
 				} else {
@@ -75,6 +75,7 @@ templ MapGrid(m game.Map, p game.Player) {
 }
 
 templ Map(m game.Map, p game.Player) {
+	<div class="game-map">
 	<script type="text/javascript" src="/static/htmx.min.js"></script>
 	<script>
 		document.addEventListener('DOMContentLoaded', function() {
@@ -100,7 +101,7 @@ templ Map(m game.Map, p game.Player) {
 					event.preventDefault();
 					// Trigger HTMX request
 					htmx.ajax('GET', '/move?direction=' + direction, {
-						target: '.map-grid',
+						target: '.game-map',
 						swap: 'outerHTML'
 					});
 				}
@@ -144,7 +145,7 @@ templ Map(m game.Map, p game.Player) {
 		<div style="margin-bottom: 10px;">
 			<button
 				hx-get="/move?direction=north"
-				hx-target=".map-grid"
+				hx-target=".game-map"
 				hx-swap="outerHTML"
 				style="width: 60px; height: 40px; margin: 0 5px;"
 			>↑</button>
@@ -152,13 +153,13 @@ templ Map(m game.Map, p game.Player) {
 		<div>
 			<button
 				hx-get="/move?direction=west"
-				hx-target=".map-grid"
+				hx-target=".game-map"
 				hx-swap="outerHTML"
 				style="width: 60px; height: 40px; margin: 0 5px;"
 			>←</button>
 			<button
 				hx-get="/move?direction=east"
-				hx-target=".map-grid"
+				hx-target=".game-map"
 				hx-swap="outerHTML"
 				style="width: 60px; height: 40px; margin: 0 5px;"
 			>→</button>
@@ -166,12 +167,45 @@ templ Map(m game.Map, p game.Player) {
 		<div style="margin-top: 10px;">
 			<button
 				hx-get="/move?direction=south"
-				hx-target=".map-grid"
+				hx-target=".game-map"
 				hx-swap="outerHTML"
 				style="width: 60px; height: 40px; margin: 0 5px;"
 			>↓</button>
 		</div>
 	</div>
 </div>
+
+<div style="margin-top: 20px; text-align: center; font-size: 18px; font-weight: bold; color: var(--player-color);">
+	Health: {p.Health}
+</div>
+
+<div style="margin-top: 20px; text-align: center;">
+	<div style="display: inline-block; text-align: left;">
+		<div style="font-weight: bold; margin-bottom: 10px;">Wall Types:</div>
+		<div style="display: flex; flex-direction: column; gap: 5px;">
+			<div style="display: flex; align-items: center; gap: 10px;">
+				<div style="width: 20px; height: 20px; border: 2px solid var(--wall-empty); background-color: var(--room-bg);"></div>
+				<span>Empty</span>
+			</div>
+			<div style="display: flex; align-items: center; gap: 10px;">
+				<div style="width: 20px; height: 20px; border: 2px solid var(--wall-door); background-color: var(--room-bg);"></div>
+				<span>Door</span>
+			</div>
+			<div style="display: flex; align-items: center; gap: 10px;">
+				<div style="width: 20px; height: 20px; border: 2px solid var(--wall-hidden-door); background-color: var(--room-bg);"></div>
+				<span>Hidden Door</span>
+			</div>
+			<div style="display: flex; align-items: center; gap: 10px;">
+				<div style="width: 20px; height: 20px; border: 2px solid var(--wall-indestructible); background-color: var(--room-bg);"></div>
+				<span>Indestructible</span>
+			</div>
+			<div style="display: flex; align-items: center; gap: 10px;">
+				<div style="width: 20px; height: 20px; border: 2px solid var(--wall-destructible); background-color: var(--room-bg);"></div>
+				<span>Destructible</span>
+			</div>
+		</div>
+	</div>
+</div>
+	</div>
 }
 

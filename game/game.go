@@ -60,14 +60,14 @@ type Item struct {
 
 func (p *Player) Generate_player() {
 	p.Alive = true
-	p.Health = 83 + rand.N(18)
+	p.Health = 30
 	p.Strength = float64(80+rand.N(21)) / 100
 	p.Stamina = 50 + rand.N(51)
 }
 
 func (e *Enemy) Generate_enemy() {
 	e.Alive = true
-	e.Health = 83 + rand.N(18)
+	e.Health = 3 + rand.N(2)
 	e.Strength = float64(80+rand.N(21)) / 100
 }
 
@@ -75,7 +75,7 @@ func (e *Enemy) Generate_enemy() {
 func (r *Room) Generate_room() {
 	// Use more reasonable wall types for initial generation
 	// Avoid "indestructible" as it creates dead ends
-	wall_types := []string{"empty", "door", "hidden_door", "destructible"}
+	wall_types := []string{"empty", "door", "door", "door", "hidden_door", "destructible", "indestructible", "indestructible", "indestructible"}
 	r.NWall.Type = wall_types[rand.N(len(wall_types))]
 	r.NWall.Health = 50 + rand.N(51)
 	r.SWall.Type = wall_types[rand.N(len(wall_types))]
@@ -399,21 +399,60 @@ func (m *Map) MovePlayer(p *Player, direction string) bool {
 		return false
 	}
 
-	// Move is valid, update player position
-	p.Position = newPos
+	// Check for enemy collision and apply damage
+	crossingDetected := false
+	for i := range m.Enemies {
+		enemy := &m.Enemies[i]
+		if enemy.Alive && enemy.Position.X == newPos.X && enemy.Position.Y == newPos.Y {
+			// Check if enemy is adjacent to player (potential crossing scenario)
+			dx := enemy.Position.X - currentPos.X
+			dy := enemy.Position.Y - currentPos.Y
 
-	// Explore the new room if it hasn't been explored yet
-	if _, explored := m.Explored[newPos]; !explored {
-		if room, exists := m.Rooms[newPos]; exists {
-			m.Explored[newPos] = &room
+			// If enemy is exactly one space away (adjacent), it's a crossing scenario
+			if (dx == 0 && (dy == 1 || dy == -1)) || (dy == 0 && (dx == 1 || dx == -1)) {
+				// Crossing scenario: neither moves, player takes damage
+				damage := enemy.Health
+				p.Health -= damage
+				if p.Health < 0 {
+					p.Health = 0
+				}
+				crossingDetected = true
+			} else {
+				// Normal collision: player moves into enemy, takes damage
+				damage := enemy.Health
+				p.Health -= damage
+				if p.Health < 0 {
+					p.Health = 0
+				}
+			}
+			break
 		}
 	}
 
-	// Explore rooms visible from the new position
-	m.ExploreVisibleRooms(newPos)
+	// Only move player if it's not a crossing scenario
+	if !crossingDetected {
+		// Move is valid, update player position
+		p.Position = newPos
+	}
 
-	// Move all enemies after player movement
-	m.MoveEnemies()
+	// Only explore and move enemies if player actually moved
+	if !crossingDetected {
+		// Explore the new room if it hasn't been explored yet
+		if _, explored := m.Explored[newPos]; !explored {
+			if room, exists := m.Rooms[newPos]; exists {
+				m.Explored[newPos] = &room
+			}
+		}
+
+		// Explore rooms visible from the new position
+		m.ExploreVisibleRooms(newPos)
+
+		// Move all enemies after player movement
+		m.MoveEnemies(newPos)
+	} else {
+		// Player didn't move, so use current position for enemy movement
+		m.MoveEnemies(currentPos)
+	}
 
 	return true
 }
@@ -483,7 +522,7 @@ func (m *Map) GetValidEnemyMoves(enemyPos Pos) []string {
 }
 
 // MoveEnemies moves all living enemies in random valid directions
-func (m *Map) MoveEnemies() {
+func (m *Map) MoveEnemies(playerPos Pos) {
 	for i := range m.Enemies {
 		enemy := &m.Enemies[i]
 		if !enemy.Alive {
@@ -513,6 +552,12 @@ func (m *Map) MoveEnemies() {
 			newPos = Pos{X: enemy.Position.X + 1, Y: enemy.Position.Y}
 		case "west":
 			newPos = Pos{X: enemy.Position.X - 1, Y: enemy.Position.Y}
+		}
+
+		// Check if the new position would be occupied by the player
+		if newPos.X == playerPos.X && newPos.Y == playerPos.Y {
+			// Enemy cannot move into player's position
+			continue
 		}
 
 		// Update enemy position

@@ -53,7 +53,7 @@ func (h *Handler) Move(w http.ResponseWriter, r *http.Request) {
 	// Attempt to move the player
 	sess.Map.MovePlayer(&sess.Player, direction)
 
-	// Return the updated map grid only (HTMX will replace the content)
+	// Return the full map (including health display) for HTMX to replace
 	w.Header().Set("Content-Type", "text/html")
-	templ.MapGrid(sess.Map, sess.Player).Render(context.Background(), w)
+	templ.Map(sess.Map, sess.Player).Render(context.Background(), w)
 }
