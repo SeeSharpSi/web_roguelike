@@ -4,14 +4,17 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
+	"seesharpsi/web_roguelike/game"
 	"sync"
 	"time"
 )
 
-// Session holds the state for a single user's story.
+// Session holds the state for a single user's game.
 type Session struct {
-	ID                string
-	LastAccessed      time.Time
+	ID           string
+	LastAccessed time.Time
+	Player       game.Player
+	Map          game.Map
 }
 
 // Manager handles the creation, storage, and retrieval of sessions.
@@ -37,11 +40,19 @@ func (m *Manager) CreateSession() string {
 	rand.Read(b)
 	id := hex.EncodeToString(b)
 
+	new_player := game.Player{}
+	new_player.Generate_player()
+	new_map := game.Map{}
+	new_map.Generate_map()
+	new_player.Position = new_map.StartPos
+
 	m.sessions[id] = &Session{
-		ID:           id,
+		ID: id,
 		//GameState:    &story.GameState{},
 		//StoryHistory: []story.StoryPage{},
 		LastAccessed: time.Now(),
+		Player:       new_player,
+		Map:          new_map,
 	}
 	return id
 }
@@ -79,4 +90,3 @@ func (m *Manager) GetOrCreateSession(r *http.Request) (*Session, http.Cookie) {
 	}
 	return m.GetSession(id), newCookie
 }
-

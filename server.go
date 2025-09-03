@@ -37,6 +37,7 @@ func main() {
 	fs := http.FileServer(http.Dir("./static"))
 	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 	mux.HandleFunc("/", h.Index)
+	mux.HandleFunc("/map", h.Map)
 	mux.HandleFunc("/test", h.Test)
 
 	server := http.Server{

@@ -1,0 +1,85 @@
+package templ
+
+import (
+	"fmt"
+	"seesharpsi/web_roguelike/game"
+)
+
+// wallColor is a helper function to map wall types to CSS colors.
+func wallColor(wallType string) string {
+	switch wallType {
+	case "empty":
+		return "transparent"
+	case "door":
+		return "saddlebrown"
+	case "hidden_door":
+		return "peru" // A lighter brown for hidden doors
+	case "indestructible":
+		return "black"
+	case "destructible":
+		return "firebrick"
+	default:
+		return "lightgrey" // A fallback for any unknown wall type
+	}
+}
+
+templ Map(m game.Map, p game.Player) {
+	<style>
+		.map-grid {
+			display: grid;
+			/** border: 2px solid #333; **/
+			background-color: #f0f0f0;
+            max-width: fit-content; 
+			// The grid dimensions are set dynamically via an inline style attribute.
+		}
+		.room-cell, .empty-cell {
+			width: 60px;
+			height: 60px;
+			box-sizing: border-box; /* Ensures padding and border are included in the element's total width and height */
+		}
+		.room-cell {
+			background-color: #fff;
+			border-style: solid;
+			border-width: 3px; /* A nice, thick border to be visible */
+		}
+		.empty-cell {
+			background-color: #ccc;
+		}
+	</style>
+
+	// Create the grid container.
+	// We use an inline style to set the grid dimensions based on the map's width and length.
+	<div
+		class="map-grid"
+		style={ fmt.Sprintf("grid-template-columns: repeat(%d, 60px); grid-template-rows: repeat(%d, 60px);", m.Width, m.Length) }
+	>
+		// We loop from top to bottom (y = Length-1 to 0) to make (0,0) appear at the bottom-left.
+		for y := m.Length - 1; y >= 0; y-- {
+			// Then we loop from left to right (x = 0 to Width-1).
+			for x := 0; x < m.Width; x++ {
+				// Check if a room exists at the current coordinate (x, y).
+				{{ current_pos := game.Pos{X: x, Y: y} }}
+				if room, exists := m.Rooms[current_pos]; exists {
+					// If a room exists, create a div for it.
+					// We use an inline style to set the specific border colors for each of the four walls.
+					<div
+						class="room-cell"
+						style={
+							"border-top-color: " + wallColor(room.NWall.Type) + ";" +
+							"border-right-color: " + wallColor(room.EWall.Type) + ";" +
+							"border-bottom-color: " + wallColor(room.SWall.Type) + ";" +
+							"border-left-color: " + wallColor(room.WWall.Type) + ";"
+						}
+					>
+						// You could add content inside the room here, like the coordinates.
+						// { strconv.Itoa(x) },{ strconv.Itoa(y) }
+					</div>
+				} else {
+					// If no room exists, create an empty, grayed-out cell as a placeholder.
+					<div class="empty-cell"></div>
+				}
+			}
+		}
+	</div>
+}
+

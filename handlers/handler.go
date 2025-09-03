@@ -29,3 +29,11 @@ func (h *Handler) Test(w http.ResponseWriter, r *http.Request) {
 
 	templ.Test().Render(context.Background(), w)
 }
+
+func (h *Handler) Map(w http.ResponseWriter, r *http.Request) {
+	print("\nGot /map request")
+	sess, cookie := h.Manager.GetOrCreateSession(r)
+	http.SetCookie(w, &cookie)
+
+	templ.Map(sess.Map, sess.Player).Render(context.Background(), w)
+}
