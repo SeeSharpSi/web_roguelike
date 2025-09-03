@@ -382,5 +382,89 @@ func (m *Map) MovePlayer(p *Player, direction string) bool {
 		}
 	}
 
+	// Explore rooms visible from the new position
+	m.ExploreVisibleRooms(newPos)
+
 	return true
+}
+
+// ExploreVisibleRooms marks rooms visible from the player's current position as explored.
+// The player can see up to 2 rooms away, but only through empty walls.
+func (m *Map) ExploreVisibleRooms(playerPos Pos) {
+	// Directions and their corresponding walls
+	directions := []struct {
+		delta        Pos
+		playerWall   func(Room) *Wall
+		adjacentWall func(Room) *Wall
+	}{
+		{Pos{X: 0, Y: 1}, func(r Room) *Wall { return &r.NWall }, func(r Room) *Wall { return &r.SWall }},  // North
+		{Pos{X: 0, Y: -1}, func(r Room) *Wall { return &r.SWall }, func(r Room) *Wall { return &r.NWall }}, // South
+		{Pos{X: 1, Y: 0}, func(r Room) *Wall { return &r.EWall }, func(r Room) *Wall { return &r.WWall }},  // East
+		{Pos{X: -1, Y: 0}, func(r Room) *Wall { return &r.WWall }, func(r Room) *Wall { return &r.EWall }}, // West
+	}
+
+	// Check each direction
+	for _, dir := range directions {
+		// Check first adjacent room
+		adjacentPos := Pos{X: playerPos.X + dir.delta.X, Y: playerPos.Y + dir.delta.Y}
+
+		// Check if adjacent position is within bounds
+		if adjacentPos.X < 0 || adjacentPos.X >= m.Width || adjacentPos.Y < 0 || adjacentPos.Y >= m.Length {
+			continue
+		}
+
+		playerRoom, playerExists := m.Rooms[playerPos]
+		adjacentRoom, adjacentExists := m.Rooms[adjacentPos]
+
+		if !playerExists || !adjacentExists {
+			continue
+		}
+
+		// Check if the wall from player's room allows visibility (must be empty)
+		playerWall := dir.playerWall(playerRoom)
+		if playerWall.Type != "empty" {
+			continue
+		}
+
+		// Check if the facing wall from adjacent room allows visibility (must be empty)
+		adjacentWall := dir.adjacentWall(adjacentRoom)
+		if adjacentWall.Type != "empty" {
+			continue
+		}
+
+		// First adjacent room is visible, mark it as explored
+		if _, explored := m.Explored[adjacentPos]; !explored {
+			m.Explored[adjacentPos] = &adjacentRoom
+		}
+
+		// Now check the second room in this direction
+		secondPos := Pos{X: adjacentPos.X + dir.delta.X, Y: adjacentPos.Y + dir.delta.Y}
+
+		// Check if second position is within bounds
+		if secondPos.X < 0 || secondPos.X >= m.Width || secondPos.Y < 0 || secondPos.Y >= m.Length {
+			continue
+		}
+
+		secondRoom, secondExists := m.Rooms[secondPos]
+		if !secondExists {
+			continue
+		}
+
+		// Check if the wall from adjacent room to second room allows visibility
+		adjacentToSecondWall := dir.playerWall(adjacentRoom)
+		if adjacentToSecondWall.Type != "empty" {
+			continue
+		}
+
+		// Check if the facing wall from second room allows visibility
+		secondWall := dir.adjacentWall(secondRoom)
+		if secondWall.Type != "empty" {
+			continue
+		}
+
+		// Second room is visible, mark it as explored
+		if _, explored := m.Explored[secondPos]; !explored {
+			m.Explored[secondPos] = &secondRoom
+		}
+	}
 }
