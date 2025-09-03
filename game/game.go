@@ -28,6 +28,7 @@ type Map struct {
 	Rooms    map[Pos]Room
 	StartPos Pos
 	Explored map[Pos]*Room
+	Enemies  []Enemy
 }
 
 type Pos struct {
@@ -88,10 +89,14 @@ func (r *Room) Generate_room() {
 // generate_map creates a series of connected rooms using a randomized DFS algorithm with backtracking.
 func (m *Map) Generate_map() {
 	// Initialize map dimensions and the Rooms map
-	m.Width = 7 + rand.N(4)  // Width will be between 7 and 10
-	m.Length = 7 + rand.N(4) // Length will be between 7 and 10
+	m.Width = 9 + rand.N(5)  // Width will be between 7 and 10
+	m.Length = 9 + rand.N(5) // Length will be between 7 and 10
 	m.Rooms = make(map[Pos]Room)
 	m.Explored = make(map[Pos]*Room)
+	m.Enemies = make([]Enemy, 0) // Initialize enemies slice
+
+	// Room counter for enemy generation
+	roomCount := 0
 
 	// A stack to keep track of the path for backtracking
 	stack := []Pos{}
@@ -108,6 +113,17 @@ func (m *Map) Generate_map() {
 	m.StartPos = start_pos
 	m.Rooms[start_pos] = firstRoom
 	stack = append(stack, start_pos)
+
+	// Increment room count and check for enemy generation
+	roomCount++
+	if roomCount%15 == 0 {
+		var enemy Enemy
+		enemy.Generate_enemy()
+		enemy.Position = start_pos
+		enemy.Name = "Goblin"
+		enemy.Description = "A nasty little goblin"
+		m.Enemies = append(m.Enemies, enemy)
+	}
 
 	// 3. This loop continues until we've backtracked all the way to the start.
 	for len(stack) > 0 {
@@ -184,6 +200,17 @@ func (m *Map) Generate_map() {
 			m.Rooms[current_pos] = current_room
 			m.Rooms[next_pos] = newRoom
 			// --- END of NEW LOGIC ---
+
+			// Increment room count and check for enemy generation
+			roomCount++
+			if roomCount%15 == 0 {
+				var enemy Enemy
+				enemy.Generate_enemy()
+				enemy.Position = next_pos
+				enemy.Name = "Goblin"
+				enemy.Description = "A nasty little goblin"
+				m.Enemies = append(m.Enemies, enemy)
+			}
 
 			// Add the new position to the stack to continue the path.
 			stack = append(stack, next_pos)
@@ -385,7 +412,112 @@ func (m *Map) MovePlayer(p *Player, direction string) bool {
 	// Explore rooms visible from the new position
 	m.ExploreVisibleRooms(newPos)
 
+	// Move all enemies after player movement
+	m.MoveEnemies()
+
 	return true
+}
+
+// GetValidEnemyMoves returns a list of valid directions an enemy can move from its current position.
+// An enemy can only move if both walls between current and target rooms are empty.
+func (m *Map) GetValidEnemyMoves(enemyPos Pos) []string {
+	var validMoves []string
+	directions := []string{"north", "south", "east", "west"}
+
+	for _, direction := range directions {
+		var newPos Pos
+		var currentWallType, targetWallType string
+
+		// Calculate new position
+		switch direction {
+		case "north":
+			newPos = Pos{X: enemyPos.X, Y: enemyPos.Y + 1}
+		case "south":
+			newPos = Pos{X: enemyPos.X, Y: enemyPos.Y - 1}
+		case "east":
+			newPos = Pos{X: enemyPos.X + 1, Y: enemyPos.Y}
+		case "west":
+			newPos = Pos{X: enemyPos.X - 1, Y: enemyPos.Y}
+		}
+
+		// Check if new position is within map bounds
+		if newPos.X < 0 || newPos.X >= m.Width || newPos.Y < 0 || newPos.Y >= m.Length {
+			continue
+		}
+
+		// Get current room
+		currentRoom, currentExists := m.Rooms[enemyPos]
+		if !currentExists {
+			continue
+		}
+
+		// Get target room
+		targetRoom, targetExists := m.Rooms[newPos]
+		if !targetExists {
+			continue
+		}
+
+		// Get wall types for both rooms
+		switch direction {
+		case "north":
+			currentWallType = currentRoom.NWall.Type
+			targetWallType = targetRoom.SWall.Type
+		case "south":
+			currentWallType = currentRoom.SWall.Type
+			targetWallType = targetRoom.NWall.Type
+		case "east":
+			currentWallType = currentRoom.EWall.Type
+			targetWallType = targetRoom.WWall.Type
+		case "west":
+			currentWallType = currentRoom.WWall.Type
+			targetWallType = targetRoom.EWall.Type
+		}
+
+		// Both walls must be empty for enemy to move
+		if currentWallType == "empty" && targetWallType == "empty" {
+			validMoves = append(validMoves, direction)
+		}
+	}
+
+	return validMoves
+}
+
+// MoveEnemies moves all living enemies in random valid directions
+func (m *Map) MoveEnemies() {
+	for i := range m.Enemies {
+		enemy := &m.Enemies[i]
+		if !enemy.Alive {
+			continue
+		}
+
+		// Get valid moves for this enemy
+		validMoves := m.GetValidEnemyMoves(enemy.Position)
+
+		// If no valid moves, enemy stays put
+		if len(validMoves) == 0 {
+			continue
+		}
+
+		// Choose a random valid direction
+		randomIndex := rand.N(len(validMoves))
+		chosenDirection := validMoves[randomIndex]
+
+		// Calculate new position
+		var newPos Pos
+		switch chosenDirection {
+		case "north":
+			newPos = Pos{X: enemy.Position.X, Y: enemy.Position.Y + 1}
+		case "south":
+			newPos = Pos{X: enemy.Position.X, Y: enemy.Position.Y - 1}
+		case "east":
+			newPos = Pos{X: enemy.Position.X + 1, Y: enemy.Position.Y}
+		case "west":
+			newPos = Pos{X: enemy.Position.X - 1, Y: enemy.Position.Y}
+		}
+
+		// Update enemy position
+		enemy.Position = newPos
+	}
 }
 
 // ExploreVisibleRooms marks rooms visible from the player's current position as explored.

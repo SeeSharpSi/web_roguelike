@@ -49,9 +49,20 @@ templ MapGrid(m game.Map, p game.Player) {
 							"border-left-color: " + wallColor(room.WWall.Type) + ";"
 						}
 					>
-						// Show player as "X" if they're in this room
-						if current_pos.X == p.Position.X && current_pos.Y == p.Position.Y {
-							X
+						// Check what's in this room
+						{{ hasPlayer := current_pos.X == p.Position.X && current_pos.Y == p.Position.Y }}
+						{{ hasEnemy := false }}
+						for _, enemy := range m.Enemies {
+							if enemy.Position.X == current_pos.X && enemy.Position.Y == current_pos.Y && enemy.Alive {
+								{{ hasEnemy = true }}
+								{{ break }}
+							}
+						}
+
+						if hasPlayer {
+							P
+						} else if hasEnemy {
+							E
 						}
 					</div>
 				} else {
@@ -65,6 +76,37 @@ templ MapGrid(m game.Map, p game.Player) {
 
 templ Map(m game.Map, p game.Player) {
 	<script type="text/javascript" src="/static/htmx.min.js"></script>
+	<script>
+		document.addEventListener('DOMContentLoaded', function() {
+			document.addEventListener('keydown', function(event) {
+				let direction = null;
+
+				switch(event.key) {
+					case 'ArrowUp':
+						direction = 'north';
+						break;
+					case 'ArrowDown':
+						direction = 'south';
+						break;
+					case 'ArrowLeft':
+						direction = 'west';
+						break;
+					case 'ArrowRight':
+						direction = 'east';
+						break;
+				}
+
+				if (direction) {
+					event.preventDefault();
+					// Trigger HTMX request
+					htmx.ajax('GET', '/move?direction=' + direction, {
+						target: '.map-grid',
+						swap: 'outerHTML'
+					});
+				}
+			});
+		});
+	</script>
 	@ThemeVariables("rose-pine")
 	<style>
 		.map-grid {

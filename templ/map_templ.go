@@ -101,25 +101,38 @@ func MapGrid(m game.Map, p game.Player) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					if current_pos.X == p.Position.X && current_pos.Y == p.Position.Y {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "X")
+					hasPlayer := current_pos.X == p.Position.X && current_pos.Y == p.Position.Y
+					hasEnemy := false
+					for _, enemy := range m.Enemies {
+						if enemy.Position.X == current_pos.X && enemy.Position.Y == current_pos.Y && enemy.Alive {
+							hasEnemy = true
+							break
+						}
+					}
+					if hasPlayer {
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "P")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+					} else if hasEnemy {
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "E")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " <div class=\"empty-cell\"></div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, " <div class=\"empty-cell\"></div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -148,7 +161,7 @@ func Map(m game.Map, p game.Player) templ.Component {
 			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<script type=\"text/javascript\" src=\"/static/htmx.min.js\"></script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<script type=\"text/javascript\" src=\"/static/htmx.min.js\"></script><script>\n\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\tdocument.addEventListener('keydown', function(event) {\n\t\t\t\tlet direction = null;\n\n\t\t\t\tswitch(event.key) {\n\t\t\t\t\tcase 'ArrowUp':\n\t\t\t\t\t\tdirection = 'north';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowDown':\n\t\t\t\t\t\tdirection = 'south';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowLeft':\n\t\t\t\t\t\tdirection = 'west';\n\t\t\t\t\t\tbreak;\n\t\t\t\t\tcase 'ArrowRight':\n\t\t\t\t\t\tdirection = 'east';\n\t\t\t\t\t\tbreak;\n\t\t\t\t}\n\n\t\t\t\tif (direction) {\n\t\t\t\t\tevent.preventDefault();\n\t\t\t\t\t// Trigger HTMX request\n\t\t\t\t\thtmx.ajax('GET', '/move?direction=' + direction, {\n\t\t\t\t\t\ttarget: '.map-grid',\n\t\t\t\t\t\tswap: 'outerHTML'\n\t\t\t\t\t});\n\t\t\t\t}\n\t\t\t});\n\t\t});\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -156,7 +169,7 @@ func Map(m game.Map, p game.Player) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<style>\n\t\t.map-grid {\n\t\t\tdisplay: grid;\n\t\t\tbackground-color: var(--bg-primary);\n            max-width: fit-content;\n            gap: 2px;\n\t\t\t// The grid dimensions are set dynamically via an inline style attribute.\n\t\t}\n\t\t.room-cell, .empty-cell {\n\t\t\twidth: 60px;\n\t\t\theight: 60px;\n\t\t\tbox-sizing: border-box; /* Ensures padding and border are included in the element's total width and height */\n\t\t}\n\t\t.room-cell {\n\t\t\tbackground-color: var(--room-bg);\n\t\t\tborder-style: solid;\n\t\t\tborder-width: 2px; /* A nice, thick border to be visible */\n\t\t\tdisplay: flex;\n\t\t\talign-items: center;\n\t\t\tjustify-content: center;\n\t\t\tfont-weight: bold;\n\t\t\tfont-size: 18px;\n\t\t\tcolor: var(--player-color);\n\t\t}\n\t\t.empty-cell {\n\t\t\tbackground-color: var(--room-unexplored);\n\t\t}\n\t</style>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<style>\n\t\t.map-grid {\n\t\t\tdisplay: grid;\n\t\t\tbackground-color: var(--bg-primary);\n            max-width: fit-content;\n            gap: 2px;\n\t\t\t// The grid dimensions are set dynamically via an inline style attribute.\n\t\t}\n\t\t.room-cell, .empty-cell {\n\t\t\twidth: 60px;\n\t\t\theight: 60px;\n\t\t\tbox-sizing: border-box; /* Ensures padding and border are included in the element's total width and height */\n\t\t}\n\t\t.room-cell {\n\t\t\tbackground-color: var(--room-bg);\n\t\t\tborder-style: solid;\n\t\t\tborder-width: 2px; /* A nice, thick border to be visible */\n\t\t\tdisplay: flex;\n\t\t\talign-items: center;\n\t\t\tjustify-content: center;\n\t\t\tfont-weight: bold;\n\t\t\tfont-size: 18px;\n\t\t\tcolor: var(--player-color);\n\t\t}\n\t\t.empty-cell {\n\t\t\tbackground-color: var(--room-unexplored);\n\t\t}\n\t</style>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -164,7 +177,7 @@ func Map(m game.Map, p game.Player) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div style=\"margin-top: 20px; text-align: center;\"><div style=\"display: inline-block;\"><div style=\"margin-bottom: 10px;\"><button hx-get=\"/move?direction=north\" hx-target=\".map-grid\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">↑</button></div><div><button hx-get=\"/move?direction=west\" hx-target=\".map-grid\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">←</button> <button hx-get=\"/move?direction=east\" hx-target=\".map-grid\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">→</button></div><div style=\"margin-top: 10px;\"><button hx-get=\"/move?direction=south\" hx-target=\".map-grid\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">↓</button></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div style=\"margin-top: 20px; text-align: center;\"><div style=\"display: inline-block;\"><div style=\"margin-bottom: 10px;\"><button hx-get=\"/move?direction=north\" hx-target=\".map-grid\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">↑</button></div><div><button hx-get=\"/move?direction=west\" hx-target=\".map-grid\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">←</button> <button hx-get=\"/move?direction=east\" hx-target=\".map-grid\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">→</button></div><div style=\"margin-top: 10px;\"><button hx-get=\"/move?direction=south\" hx-target=\".map-grid\" hx-swap=\"outerHTML\" style=\"width: 60px; height: 40px; margin: 0 5px;\">↓</button></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
