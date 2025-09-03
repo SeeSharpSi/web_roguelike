@@ -50,7 +50,9 @@ func (p *Player) Generate_player() {
 
 // Also fixed the random wall type selection to include all types.
 func (r *Room) Generate_room() {
-	wall_types := []string{"empty", "door", "hidden_door", "indestructible", "destructible"}
+	// Use more reasonable wall types for initial generation
+	// Avoid "indestructible" as it creates dead ends
+	wall_types := []string{"empty", "door", "hidden_door", "destructible"}
 	r.NWall.Type = wall_types[rand.N(len(wall_types))]
 	r.NWall.Health = 50 + rand.N(51)
 	r.SWall.Type = wall_types[rand.N(len(wall_types))]
@@ -168,6 +170,134 @@ func (m *Map) Generate_map() {
 			// If we're stuck (no unvisited neighbors), pop from the stack to backtrack.
 			stack = stack[:len(stack)-1]
 		}
+	}
+
+	// After generating all rooms, synchronize wall types between adjacent rooms
+	m.synchronizeAdjacentWalls()
+
+	// Make boundary walls indestructible
+	m.makeBoundaryWallsIndestructible()
+}
+
+// synchronizeAdjacentWalls ensures that bordering rooms have walls of the same type
+func (m *Map) synchronizeAdjacentWalls() {
+	for pos, room := range m.Rooms {
+		// Check each direction for adjacent rooms
+		directions := []struct {
+			delta        Pos
+			currentWall  *Wall
+			adjacentWall *Wall
+		}{
+			{Pos{X: 0, Y: 1}, &room.NWall, nil},  // North
+			{Pos{X: 0, Y: -1}, &room.SWall, nil}, // South
+			{Pos{X: 1, Y: 0}, &room.EWall, nil},  // East
+			{Pos{X: -1, Y: 0}, &room.WWall, nil}, // West
+		}
+
+		for _, dir := range directions {
+			adjacentPos := Pos{X: pos.X + dir.delta.X, Y: pos.Y + dir.delta.Y}
+			if adjacentRoom, exists := m.Rooms[adjacentPos]; exists {
+				// Determine which wall of the adjacent room faces this room
+				var adjacentWall *Wall
+				if dir.delta.Y == 1 { // This room is south of adjacent
+					adjacentWall = &adjacentRoom.SWall
+				} else if dir.delta.Y == -1 { // This room is north of adjacent
+					adjacentWall = &adjacentRoom.NWall
+				} else if dir.delta.X == 1 { // This room is west of adjacent
+					adjacentWall = &adjacentRoom.WWall
+				} else if dir.delta.X == -1 { // This room is east of adjacent
+					adjacentWall = &adjacentRoom.EWall
+				}
+
+				// Synchronize the wall types, but preserve passage walls
+				if adjacentWall != nil {
+					// Don't override passage walls (empty, door, destructible) unless both walls are passage types
+					currentIsPassage := dir.currentWall.Type == "empty" || dir.currentWall.Type == "door" || dir.currentWall.Type == "destructible"
+					adjacentIsPassage := adjacentWall.Type == "empty" || adjacentWall.Type == "door" || adjacentWall.Type == "destructible"
+
+					if currentIsPassage && adjacentIsPassage {
+						// Both are passage walls, synchronize to the more restrictive type
+						if dir.currentWall.Type == "empty" && adjacentWall.Type != "empty" {
+							dir.currentWall.Type = adjacentWall.Type
+							if adjacentWall.Type == "destructible" {
+								dir.currentWall.Health = adjacentWall.Health
+							}
+						} else if adjacentWall.Type == "empty" && dir.currentWall.Type != "empty" {
+							adjacentWall.Type = dir.currentWall.Type
+							if dir.currentWall.Type == "destructible" {
+								adjacentWall.Health = dir.currentWall.Health
+							}
+						} else if dir.currentWall.Type == "door" && adjacentWall.Type == "destructible" {
+							dir.currentWall.Type = "destructible"
+							adjacentWall.Type = "destructible"
+							// Keep higher health
+							if dir.currentWall.Health > adjacentWall.Health {
+								adjacentWall.Health = dir.currentWall.Health
+							} else {
+								dir.currentWall.Health = adjacentWall.Health
+							}
+						} else if adjacentWall.Type == "door" && dir.currentWall.Type == "destructible" {
+							adjacentWall.Type = "destructible"
+							dir.currentWall.Type = "destructible"
+							// Keep higher health
+							if adjacentWall.Health > dir.currentWall.Health {
+								dir.currentWall.Health = adjacentWall.Health
+							} else {
+								adjacentWall.Health = dir.currentWall.Health
+							}
+						}
+					} else if currentIsPassage && !adjacentIsPassage {
+						// Current is passage, adjacent is blocking - don't change passage
+						// Keep current wall as passage
+					} else if !currentIsPassage && adjacentIsPassage {
+						// Adjacent is passage, current is blocking - don't change passage
+						// Keep adjacent wall as passage
+					} else {
+						// Both are blocking walls, synchronize to more restrictive
+						if dir.currentWall.Type == "indestructible" || adjacentWall.Type == "indestructible" {
+							dir.currentWall.Type = "indestructible"
+							adjacentWall.Type = "indestructible"
+						} else if dir.currentWall.Type == "hidden_door" || adjacentWall.Type == "hidden_door" {
+							dir.currentWall.Type = "hidden_door"
+							adjacentWall.Type = "hidden_door"
+						}
+					}
+				}
+			}
+		}
+
+		// Update the room in the map
+		m.Rooms[pos] = room
+	}
+}
+
+// makeBoundaryWallsIndestructible sets walls at map boundaries to indestructible
+func (m *Map) makeBoundaryWallsIndestructible() {
+	for pos, room := range m.Rooms {
+		// Check if this room is at any boundary and set the appropriate wall to indestructible
+
+		// North boundary (Y == Length-1)
+		if pos.Y == m.Length-1 {
+			room.NWall.Type = "indestructible"
+		}
+
+		// South boundary (Y == 0)
+		if pos.Y == 0 {
+			room.SWall.Type = "indestructible"
+		}
+
+		// East boundary (X == Width-1)
+		if pos.X == m.Width-1 {
+			room.EWall.Type = "indestructible"
+		}
+
+		// West boundary (X == 0)
+		if pos.X == 0 {
+			room.WWall.Type = "indestructible"
+		}
+
+		// Update the room in the map
+		m.Rooms[pos] = room
 	}
 }
 
