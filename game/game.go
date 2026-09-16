@@ -14,7 +14,7 @@ type Player struct {
 type Map struct {
 	Width    int
 	Length   int
-	Rooms    map[Pos]Room
+	Rooms    map[Pos]*Room
 	StartPos Pos
 	Explored map[Pos]*Room
 }
@@ -32,9 +32,18 @@ type Room struct {
 	Items []Item
 }
 
-// Current types are "empty", "door", "hidden_door", "indestructible", "destructible"
+type WallType = string
+
+const (
+	WallEmpty          WallType = "empty"
+	WallDoor           WallType = "door"
+	WallHiddenDoor     WallType = "hidden_door"
+	WallIndestructible WallType = "indestructible"
+	WallDestructible   WallType = "destructible"
+)
+
 type Wall struct {
-	Type   string
+	Type   WallType
 	Health int
 }
 
@@ -48,123 +57,137 @@ func (p *Player) Generate_player() {
 	p.Stamina = 50 + rand.N(51)
 }
 
-// Also fixed the random wall type selection to include all types.
-func (r *Room) Generate_room() {
-	wall_types := []string{"empty", "door", "hidden_door", "indestructible", "destructible"}
-	r.NWall.Type = wall_types[rand.N(len(wall_types))]
-	r.NWall.Health = 50 + rand.N(51)
-	r.SWall.Type = wall_types[rand.N(len(wall_types))]
-	r.SWall.Health = 50 + rand.N(51)
-	r.EWall.Type = wall_types[rand.N(len(wall_types))]
-	r.EWall.Health = 50 + rand.N(51)
-	r.WWall.Type = wall_types[rand.N(len(wall_types))]
-	r.WWall.Health = 50 + rand.N(51)
+func generationRand(rngs ...*rand.Rand) *rand.Rand {
+	if len(rngs) > 0 && rngs[0] != nil {
+		return rngs[0]
+	}
+	return rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
 }
 
-// generate_map creates a series of connected rooms using a randomized DFS algorithm with backtracking.
-func (m *Map) Generate_map() {
-	// Initialize map dimensions and the Rooms map
-	m.Width = 7 + rand.N(4)  // Width will be between 7 and 10
-	m.Length = 7 + rand.N(4) // Length will be between 7 and 10
-	m.Rooms = make(map[Pos]Room)
+func randomWall(rng *rand.Rand) Wall {
+	types := []WallType{WallEmpty, WallDoor, WallHiddenDoor, WallIndestructible, WallDestructible}
+	return newWall(types[rng.IntN(len(types))], rng)
+}
 
-	// A stack to keep track of the path for backtracking
-	stack := []Pos{}
+func newWall(wallType WallType, rng *rand.Rand) Wall {
+	wall := Wall{Type: wallType}
+	if wallType == WallDestructible {
+		wall.Health = 50 + rng.IntN(51)
+	}
+	return wall
+}
 
-	// 1. Start at a random location.
-	start_pos := Pos{
-		X: rand.N(m.Width),
-		Y: rand.N(m.Length),
+func (r *Room) Generate_room(rngs ...*rand.Rand) {
+	rng := generationRand(rngs...)
+	r.NWall = randomWall(rng)
+	r.SWall = randomWall(rng)
+	r.EWall = randomWall(rng)
+	r.WWall = randomWall(rng)
+}
+
+func treeEdge(parent map[Pos]Pos, first Pos, second Pos) bool {
+	parentOfFirst, firstHasParent := parent[first]
+	if firstHasParent && parentOfFirst == second {
+		return true
+	}
+	parentOfSecond, secondHasParent := parent[second]
+	return secondHasParent && parentOfSecond == first
+}
+
+// Generate_map creates every room, then assigns each shared edge once.
+func (m *Map) Generate_map(rngs ...*rand.Rand) {
+	rng := generationRand(rngs...)
+	m.Width = 0
+	m.Length = 0
+	m.Rooms = nil
+	m.Explored = nil
+	m.StartPos = Pos{}
+	m.Width = 7 + rng.IntN(4)
+	m.Length = 7 + rng.IntN(4)
+	m.Rooms = make(map[Pos]*Room)
+	m.Explored = make(map[Pos]*Room)
+
+	for y := 0; y < m.Length; y++ {
+		for x := 0; x < m.Width; x++ {
+			m.Rooms[Pos{X: x, Y: y}] = &Room{}
+		}
 	}
 
-	// 2. Generate the first room, add it to the map (marking it as visited), and push to stack.
-	var firstRoom Room
-	firstRoom.Generate_room()
-	m.StartPos = start_pos
-	m.Rooms[start_pos] = firstRoom
-	stack = append(stack, start_pos)
-
-	// 3. This loop continues until we've backtracked all the way to the start.
+	m.StartPos = Pos{X: rng.IntN(m.Width), Y: rng.IntN(m.Length)}
+	parent := make(map[Pos]Pos)
+	visited := map[Pos]bool{m.StartPos: true}
+	stack := []Pos{m.StartPos}
 	for len(stack) > 0 {
-		// Get the current position from the top of the stack (without removing it).
-		current_pos := stack[len(stack)-1]
-
-		// Find all valid, unvisited neighbors.
-		unvisited_neighbors := []Pos{}
-		potential_moves := []Pos{
-			{X: current_pos.X, Y: current_pos.Y + 1}, // North
-			{X: current_pos.X + 1, Y: current_pos.Y}, // East
-			{X: current_pos.X, Y: current_pos.Y - 1}, // South
-			{X: current_pos.X - 1, Y: current_pos.Y}, // West
+		current := stack[len(stack)-1]
+		neighbors := []Pos{
+			{X: current.X, Y: current.Y + 1},
+			{X: current.X + 1, Y: current.Y},
+			{X: current.X, Y: current.Y - 1},
+			{X: current.X - 1, Y: current.Y},
 		}
-
-		// Shuffle the potential moves to ensure random path generation.
-		rand.Shuffle(len(potential_moves), func(i, j int) {
-			potential_moves[i], potential_moves[j] = potential_moves[j], potential_moves[i]
-		})
-
-		for _, move := range potential_moves {
-			// Check if the move is within the map bounds.
-			isInBounds := move.X >= 0 && move.X < m.Width && move.Y >= 0 && move.Y < m.Length
-			if !isInBounds {
+		for i := len(neighbors) - 1; i > 0; i-- {
+			j := rng.IntN(i + 1)
+			neighbors[i], neighbors[j] = neighbors[j], neighbors[i]
+		}
+		advanced := false
+		for _, next := range neighbors {
+			if next.X < 0 || next.X >= m.Width || next.Y < 0 || next.Y >= m.Length || visited[next] {
 				continue
 			}
-
-			// Check if a room already exists at this position.
-			if _, exists := m.Rooms[move]; !exists {
-				unvisited_neighbors = append(unvisited_neighbors, move)
-			}
+			visited[next] = true
+			parent[next] = current
+			stack = append(stack, next)
+			advanced = true
+			break
 		}
-
-		// If there are unvisited neighbors to move to...
-		if len(unvisited_neighbors) > 0 {
-			// ...choose the first one from our shuffled list.
-			next_pos := unvisited_neighbors[0]
-
-			// Retrieve the current room from the map.
-			// Since structs in maps are values, we operate on a copy and must put it back.
-			current_room := m.Rooms[current_pos]
-
-			// Generate a new room at the next position.
-			var newRoom Room
-			newRoom.Generate_room()
-
-			// Define the types of walls that allow passage.
-			passage_wall_types := []string{"empty", "door", "destructible"}
-			passage_type := passage_wall_types[rand.N(len(passage_wall_types))]
-
-			// Create a shared wall that represents the new passage.
-			passage_wall := Wall{Type: passage_type}
-			if passage_type == "destructible" {
-				passage_wall.Health = 50 + rand.N(51)
-			}
-
-			// Determine direction of movement and "break down" the walls between the rooms.
-			if next_pos.Y > current_pos.Y { // Moved North
-				current_room.NWall = passage_wall
-				newRoom.SWall = passage_wall
-			} else if next_pos.Y < current_pos.Y { // Moved South
-				current_room.SWall = passage_wall
-				newRoom.NWall = passage_wall
-			} else if next_pos.X > current_pos.X { // Moved East
-				current_room.EWall = passage_wall
-				newRoom.WWall = passage_wall
-			} else if next_pos.X < current_pos.X { // Moved West
-				current_room.WWall = passage_wall
-				newRoom.EWall = passage_wall
-			}
-
-			// Place the modified current room and the new room back into the map.
-			m.Rooms[current_pos] = current_room
-			m.Rooms[next_pos] = newRoom
-			// --- END of NEW LOGIC ---
-
-			// Add the new position to the stack to continue the path.
-			stack = append(stack, next_pos)
-
-		} else {
-			// If we're stuck (no unvisited neighbors), pop from the stack to backtrack.
+		if !advanced {
 			stack = stack[:len(stack)-1]
 		}
 	}
+
+	passages := []WallType{WallEmpty, WallDoor, WallDestructible}
+	wallTypes := []WallType{WallEmpty, WallDoor, WallHiddenDoor, WallIndestructible, WallDestructible}
+	for y := 0; y < m.Length; y++ {
+		for x := 0; x < m.Width; x++ {
+			pos := Pos{X: x, Y: y}
+			room := m.Rooms[pos]
+			if y == m.Length-1 {
+				room.NWall = newWall(WallIndestructible, rng)
+			}
+			if x == m.Width-1 {
+				room.EWall = newWall(WallIndestructible, rng)
+			}
+			if x+1 < m.Width {
+				next := Pos{X: x + 1, Y: y}
+				var wallType WallType
+				if treeEdge(parent, pos, next) {
+					wallType = passages[rng.IntN(len(passages))]
+				} else {
+					wallType = wallTypes[rng.IntN(len(wallTypes))]
+				}
+				wall := newWall(wallType, rng)
+				room.EWall = wall
+				m.Rooms[next].WWall = wall
+			}
+			if y+1 < m.Length {
+				next := Pos{X: x, Y: y + 1}
+				var wallType WallType
+				if treeEdge(parent, pos, next) {
+					wallType = passages[rng.IntN(len(passages))]
+				} else {
+					wallType = wallTypes[rng.IntN(len(wallTypes))]
+				}
+				wall := newWall(wallType, rng)
+				room.NWall = wall
+				m.Rooms[next].SWall = wall
+			}
+			if y == 0 {
+				room.SWall = newWall(WallIndestructible, rng)
+			}
+			if x == 0 {
+				room.WWall = newWall(WallIndestructible, rng)
+			}
+		}
+	}
+	m.Explored[m.StartPos] = m.Rooms[m.StartPos]
 }

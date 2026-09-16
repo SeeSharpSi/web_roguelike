@@ -1,165 +1,36 @@
-# AGENTS.md - Development Guidelines for web_roguelike
+# web_roguelike
 
-## Build/Lint/Test Commands
+## Commands
 
-### Building and Running
-- **Build**: `go build .` - Compiles the Go application
-- **Run**: `go run server.go` - Runs the server directly (default port 9779)
-- **Run with custom port**: `go run server.go -port=8080 -address=http://localhost`
+- Use Go `1.23.3`. Template generation requires templ `v0.3.906`; install it with `go install github.com/a-h/templ/cmd/templ@v0.3.906` if needed.
+- Run: `go run server.go` (defaults to `http://localhost:9779`).
+- Run custom endpoint: `go run server.go -address=http://localhost -port=8080`.
+- Run from repository root because static files use relative path `./static`.
+- Build: `go build .`.
+- All tests: `go test ./...`.
+- Focused package: `go test ./game`.
+- Exact test: `go test ./path/to/package -run '^TestName$'`.
+- Vet: `go vet ./...`.
+- Format recursively: `go fmt ./...` (not `gofmt -w .`).
+- No `*_test.go` files currently exist.
 
-### Testing
-- **Run all tests**: `go test ./...` - Executes all tests in the project
-- **Run specific package tests**: `go test ./game` - Tests only the game package
-- **Run single test**: `go test -run TestFunctionName ./package`
+## Templates
 
-### Linting and Formatting
-- **Format code**: `gofmt -w .` - Formats all Go files in place
-- **Check formatting**: `gofmt -d .` - Shows formatting differences without changing files
-- **Vet code**: `go vet ./...` - Runs Go's static analysis tool
-- **Generate templ files**: `templ generate` - Generates Go code from .templ files
+- Template sources are `templ/*.templ`.
+- Generated siblings are checked in as `templ/*_templ.go`; generated files contain `DO NOT EDIT`.
+- After editing a template, run `templ generate` and include generated-file changes.
+- Source and generated tree is currently stale: `templ/map.templ` uses `border-width: 3px`, while `templ/map_templ.go` uses `5px`.
+- Do not edit generated files manually; expect first regeneration to change this stale output.
+- `templ/test.templ` is a UI component, not a test suite.
 
-### Development Workflow
-1. `templ generate` - Generate templ files after modifying .templ files
-2. `go build .` - Build the application
-3. `go run server.go` - Start the development server
+## HTTP and sessions
 
-## Code Style Guidelines
+- `server.go` is the sole executable and wires `/`, `/map`, `/test`, and `/static/`.
+- Handlers render templ components and always get/set the session cookie.
+- `session` stores a process-local map protected by one mutex.
+- New session generation creates player/map and positions player at `StartPos`.
+- Restart loses sessions. No cleanup, expiry enforcement, or multi-process sharing exists, despite the cookie's 24-hour expiry.
 
-### Naming Conventions
-- **Packages**: lowercase, single word (e.g., `game`, `handlers`, `session`)
-- **Exported types/functions**: PascalCase (e.g., `Player`, `GenerateMap`, `NewManager`)
-- **Unexported types/functions**: camelCase (e.g., `generateRoom`, `getSession`)
-- **Variables**: camelCase (e.g., `player`, `sessionID`, `wallTypes`)
-- **Constants**: PascalCase (e.g., `MaxHealth`)
+## API quirk
 
-### Imports
-```go
-import (
-    "context"
-    "net/http"
-
-    "github.com/a-h/templ"
-    "seesharpsi/web_roguelike/game"
-    "seesharpsi/web_roguelike/session"
-)
-```
-- Group standard library imports first
-- Third-party imports second
-- Local imports last
-- Use blank lines between groups
-
-### Structs and Types
-- Use meaningful names that describe purpose
-- Group related fields together
-- Add comments for complex structs
-- Example:
-```go
-// Player represents a game character with stats and position
-type Player struct {
-    Alive    bool
-    Health   int
-    Strength float64 // Strength is a multiplier
-    Stamina  int
-    Position Pos
-}
-```
-
-### Functions
-- Exported functions should have clear, descriptive names
-- Use receiver names that match the type (e.g., `func (p *Player)`)
-- Keep functions focused on single responsibility
-- Example:
-```go
-func (p *Player) GeneratePlayer() {
-    // Implementation
-}
-```
-
-### Error Handling
-- Use standard Go error patterns
-- Check errors immediately after operations
-- Return errors from functions that can fail
-- Example:
-```go
-func (m *Manager) GetSession(id string) (*Session, error) {
-    session, ok := m.sessions[id]
-    if !ok {
-        return nil, errors.New("session not found")
-    }
-    return session, nil
-}
-```
-
-### Comments
-- Add comments for exported functions and types
-- Use complete sentences starting with the name being described
-- Example:
-```go
-// GenerateMap creates a series of connected rooms using a randomized DFS algorithm
-func (m *Map) GenerateMap() {
-    // Implementation
-}
-```
-
-### Code Organization
-- Keep related functionality in the same package
-- Use meaningful package names that reflect functionality
-- Separate concerns (handlers, game logic, session management)
-- Follow Go's idiomatic file structure
-
-### Templ Files
-- Use PascalCase for component names (e.g., `Index()`, `Map()`)
-- Keep templ logic simple, delegate complex logic to Go functions
-- Use meaningful variable names in templ expressions
-- Example:
-```go
-templ Map(gameMap game.Map, player game.Player) {
-    // Template implementation
-}
-```
-
-### HTTP Handlers
-- Use descriptive handler names (e.g., `Index`, `Map`, `Test`)
-- Extract common session logic into helper functions
-- Keep handlers focused on HTTP concerns
-- Example:
-```go
-func (h *Handler) Map(w http.ResponseWriter, r *http.Request) {
-    sess, cookie := h.Manager.GetOrCreateSession(r)
-    http.SetCookie(w, &cookie)
-    // Handler logic
-}
-```
-
-### Constants and Magic Numbers
-- Use named constants instead of magic numbers
-- Group related constants together
-- Example:
-```go
-const (
-    DefaultHealth = 100
-    MaxStamina    = 50
-)
-```
-
-### Logging
-- Use `log.Printf()` for simple logging
-- Include context in log messages
-- Use appropriate log levels (info, error)
-- Example:
-```go
-log.Printf("running server on %s\n", root_ip.Host)
-log.Printf("error starting server: %s\n", err)
-```
-
-### Security Best Practices
-- Use `crypto/rand` for generating secure random values
-- Set appropriate HTTP headers (HttpOnly cookies)
-- Validate user input
-- Use secure session management
-
-### Performance Considerations
-- Use pointers for large structs to avoid copying
-- Pre-allocate slices when size is known
-- Use efficient algorithms for game logic
-- Consider memory usage in long-running server processes
+- Current generation methods are `Generate_player`, `Generate_room`, and `Generate_map`; do not call invented PascalCase variants.
