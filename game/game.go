@@ -9,6 +9,7 @@ type Player struct {
 	Strength float64 // Stength is a multiplier
 	Stamina  int
 	Position Pos
+	Role     Role
 }
 
 type Map struct {
@@ -95,7 +96,123 @@ func treeEdge(parent map[Pos]Pos, first Pos, second Pos) bool {
 }
 
 func isSpecialWall(wallType WallType) bool {
-	return wallType == WallDoor || wallType == WallHiddenDoor || wallType == WallDestructible
+	return isDoor(wallType) || wallType == WallDestructible
+}
+
+func isDoor(wallType WallType) bool {
+	return wallType == WallDoor || wallType == WallHiddenDoor
+}
+
+type mapEdge struct {
+	horizontal bool
+	x          int
+	y          int
+}
+
+func (edge mapEdge) endpoints() (Pos, Pos) {
+	if edge.horizontal {
+		return Pos{X: edge.x, Y: edge.y}, Pos{X: edge.x + 1, Y: edge.y}
+	}
+	return Pos{X: edge.x, Y: edge.y}, Pos{X: edge.x, Y: edge.y + 1}
+}
+
+func (m *Map) wallAtEdge(edge mapEdge) (Wall, bool) {
+	if edge.horizontal {
+		if edge.x < 0 || edge.x >= m.Width || edge.y < 0 || edge.y > m.Length {
+			return Wall{}, false
+		}
+		pos := Pos{X: edge.x, Y: edge.y}
+		if edge.y == m.Length {
+			return m.Rooms[Pos{X: edge.x, Y: m.Length - 1}].NWall, true
+		}
+		if edge.y == 0 {
+			return m.Rooms[pos].SWall, true
+		}
+		return m.Rooms[Pos{X: edge.x, Y: edge.y - 1}].NWall, true
+	}
+	if edge.x < 0 || edge.x > m.Width || edge.y < 0 || edge.y >= m.Length {
+		return Wall{}, false
+	}
+	if edge.x == m.Width {
+		return m.Rooms[Pos{X: m.Width - 1, Y: edge.y}].EWall, true
+	}
+	if edge.x == 0 {
+		return m.Rooms[Pos{Y: edge.y}].WWall, true
+	}
+	return m.Rooms[Pos{X: edge.x - 1, Y: edge.y}].EWall, true
+}
+
+func (m *Map) vertexHasIndestructibleWall(x, y int, excluded mapEdge) bool {
+	incident := []mapEdge{
+		{horizontal: true, x: x - 1, y: y},
+		{horizontal: true, x: x, y: y},
+		{horizontal: false, x: x, y: y - 1},
+		{horizontal: false, x: x, y: y},
+	}
+	for _, edge := range incident {
+		if edge == excluded {
+			continue
+		}
+		wall, exists := m.wallAtEdge(edge)
+		if exists && wall.Type == WallIndestructible {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Map) wallIsSupported(edge mapEdge) bool {
+	first, second := edge.endpoints()
+	return m.vertexHasIndestructibleWall(first.X, first.Y, edge) &&
+		m.vertexHasIndestructibleWall(second.X, second.Y, edge)
+}
+
+// validateSpecialWalls removes unsupported special walls and special walls sharing an endpoint with an earlier accepted special wall.
+func (m *Map) validateSpecialWalls() {
+	invalid := make([]mapEdge, 0)
+	occupied := make(map[Pos]bool)
+	for y := 0; y < m.Length; y++ {
+		for x := 0; x < m.Width; x++ {
+			if x+1 < m.Width {
+				edge := mapEdge{x: x + 1, y: y}
+				if wall, _ := m.wallAtEdge(edge); isSpecialWall(wall.Type) {
+					first, second := edge.endpoints()
+					if !m.wallIsSupported(edge) || occupied[first] || occupied[second] {
+						invalid = append(invalid, edge)
+					} else {
+						occupied[first] = true
+						occupied[second] = true
+					}
+				}
+			}
+			if y+1 < m.Length {
+				edge := mapEdge{horizontal: true, x: x, y: y + 1}
+				if wall, _ := m.wallAtEdge(edge); isSpecialWall(wall.Type) {
+					first, second := edge.endpoints()
+					if !m.wallIsSupported(edge) || occupied[first] || occupied[second] {
+						invalid = append(invalid, edge)
+					} else {
+						occupied[first] = true
+						occupied[second] = true
+					}
+				}
+			}
+		}
+	}
+	for _, edge := range invalid {
+		wall := newWall(WallEmpty, nil)
+		if edge.horizontal {
+			pos := Pos{X: edge.x, Y: edge.y - 1}
+			next := Pos{X: edge.x, Y: edge.y}
+			m.Rooms[pos].NWall = wall
+			m.Rooms[next].SWall = wall
+			continue
+		}
+		pos := Pos{X: edge.x - 1, Y: edge.y}
+		next := Pos{X: edge.x, Y: edge.y}
+		m.Rooms[pos].EWall = wall
+		m.Rooms[next].WWall = wall
+	}
 }
 
 func pickWallType(rng *rand.Rand, candidates []WallType, counts map[WallType]int, limits map[WallType]int, allowSpecial bool) WallType {
@@ -125,8 +242,8 @@ func (m *Map) Generate_map(rngs ...*rand.Rand) {
 	m.Rooms = nil
 	m.Explored = nil
 	m.StartPos = Pos{}
-	m.Width = 7 + rng.IntN(4)
-	m.Length = 7 + rng.IntN(4)
+	m.Width = 8 + rng.IntN(2)
+	m.Length = 8 + rng.IntN(2)
 	m.Rooms = make(map[Pos]*Room)
 	m.Explored = make(map[Pos]*Room)
 
@@ -175,7 +292,7 @@ func (m *Map) Generate_map(rngs ...*rand.Rand) {
 	//   - Counts reset for each generated map.
 	//   - Limits are maxima, so generation may produce fewer walls.
 	//   - Perimeter walls do not count toward limits.
-	limits := map[WallType]int{WallDoor: 2, WallHiddenDoor: 2, WallDestructible: 5, WallEmpty: 33}
+	limits := map[WallType]int{WallDoor: 2, WallHiddenDoor: 2, WallDestructible: 5}
 	counts := make(map[WallType]int)
 	passages := []WallType{WallEmpty, WallDoor, WallDestructible}
 	wallTypes := []WallType{WallEmpty, WallDoor, WallHiddenDoor, WallIndestructible, WallDestructible}
@@ -243,5 +360,6 @@ func (m *Map) Generate_map(rngs ...*rand.Rand) {
 			}
 		}
 	}
+	m.validateSpecialWalls()
 	m.Explored[m.StartPos] = m.Rooms[m.StartPos]
 }

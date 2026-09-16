@@ -1,10 +1,11 @@
 package game
 
 type Enemy struct {
-	Strength int
+	Strength float64
 	Stamina  int
 	Health   int
 	Type     EnemyType
+	Position Pos
 }
 
 type EnemyType = string
