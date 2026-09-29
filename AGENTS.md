@@ -2,35 +2,29 @@
 
 ## Commands
 
-- Use Go `1.23.3`. Template generation requires templ `v0.3.906`; install it with `go install github.com/a-h/templ/cmd/templ@v0.3.906` if needed.
-- Run: `go run server.go` (defaults to `http://localhost:9779`).
-- Run custom endpoint: `go run server.go -address=http://localhost -port=8080`.
-- Run from repository root because static files use relative path `./static`.
-- Build: `go build .`.
-- All tests: `go test ./...`.
-- Focused package: `go test ./game`.
-- Exact test: `go test ./path/to/package -run '^TestName$'`.
-- Vet: `go vet ./...`.
-- Format recursively: `go fmt ./...` (not `gofmt -w .`).
-- No `*_test.go` files currently exist.
+- `go.mod` declares Go `1.23.3`.
+- Run from the repository root: `go run server.go`, default `http://localhost:9779`. Static assets resolve from `./static`.
+- `-address` requires a URL scheme: `go run server.go -address=http://localhost -port=8080`.
+- Build check: `go build -o /dev/null .`. `go build .` overwrites the tracked `web_roguelike` binary.
+- Verify with `go test ./...` and `go vet ./...`. Focus game logic with `go test ./game`, rendering with `go test ./templ`.
+- Single map regression: `go test ./game -run '^TestGenerateMapWallQuotasAndConnectivity$'`.
 
 ## Templates
 
-- Template sources are `templ/*.templ`.
-- Generated siblings are checked in as `templ/*_templ.go`; generated files contain `DO NOT EDIT`.
-- After editing a template, run `templ generate` and include generated-file changes.
-- Source and generated tree is currently stale: `templ/map.templ` uses `border-width: 3px`, while `templ/map_templ.go` uses `5px`.
-- Do not edit generated files manually; expect first regeneration to change this stale output.
-- `templ/test.templ` is a UI component, not a test suite.
+- Edit `templ/*.templ`; checked-in `templ/*_templ.go` files are generated. Do not edit generated files manually.
+- Match the generator to templ runtime `v0.3.906`: `go install github.com/a-h/templ/cmd/templ@v0.3.906`.
+- After template edits, run `templ generate` from the repository root before build/test and include generated-file changes.
+- The map output is stale: `templ/map.templ` uses `border-width: 3px`, but `templ/map_templ.go` uses `5px`. Expect regeneration to reconcile this.
 
-## HTTP and sessions
+## Execution and sessions
 
-- `server.go` is the sole executable and wires `/`, `/map`, `/test`, and `/static/`.
-- Handlers render templ components and always get/set the session cookie.
-- `session` stores a process-local map protected by one mutex.
-- New session generation creates player/map and positions player at `StartPos`.
-- Restart loses sessions. No cleanup, expiry enforcement, or multi-process sharing exists, despite the cookie's 24-hour expiry.
+- `server.go` wires handlers in `handlers/`; they render `templ/` components using player/map state from `session/` and generation logic in `game/`.
+- `/`, `/map`, and `/test` all create/reuse a `session_id` session and set its cookie. New sessions generate a player/map and place the player at `Map.StartPos`.
+- Sessions are process-local and disappear on restart. The server does not expire or clean them up despite the cookie's 24-hour expiry.
+- The session-manager mutex protects store access, not later mutation of returned `*Session` values.
 
-## API quirk
+## Game quirks
 
-- Current generation methods are `Generate_player`, `Generate_room`, and `Generate_map`; do not call invented PascalCase variants.
+- Generation methods are `Generate_player`, `Generate_room`, and `Generate_map`. Room/map generation accepts an optional `*rand.Rand` from `math/rand/v2`; use `rand.New(rand.NewPCG(seed1, seed2))` for deterministic tests.
+- Shared walls are stored as values in both adjacent rooms; update both sides together.
+- Map coordinates have `(0,0)` at bottom-left; `templ/map.templ` renders Y in descending order.
