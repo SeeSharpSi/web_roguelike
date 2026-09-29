@@ -48,9 +48,6 @@ type Wall struct {
 	Health int
 }
 
-type Item struct {
-}
-
 func (p *Player) Generate_player() {
 	p.Alive = true
 	p.Health = 83 + rand.N(18)
@@ -84,6 +81,7 @@ func (r *Room) Generate_room(rngs ...*rand.Rand) {
 	r.SWall = randomWall(rng)
 	r.EWall = randomWall(rng)
 	r.WWall = randomWall(rng)
+	r.Items = randomItems(rng)
 }
 
 func treeEdge(parent map[Pos]Pos, first Pos, second Pos) bool {
@@ -361,5 +359,10 @@ func (m *Map) Generate_map(rngs ...*rand.Rand) {
 		}
 	}
 	m.validateSpecialWalls()
+	for y := 0; y < m.Length; y++ {
+		for x := 0; x < m.Width; x++ {
+			m.Rooms[Pos{X: x, Y: y}].Items = randomItems(rng)
+		}
+	}
 	m.Explored[m.StartPos] = m.Rooms[m.StartPos]
 }
