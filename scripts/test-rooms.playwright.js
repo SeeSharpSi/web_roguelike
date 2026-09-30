@@ -184,7 +184,7 @@ async (page) => {
     await oldSession.context.addCookies(originalCookies);
     mark("Host created canonical lobby with one player, map, stats, and original session cookie");
 
-    // 2. Join same room from independent context and verify shared map and host polling.
+    // 2. Join same room from independent context and verify shared map and host SSE updates.
     const peer = await newIndependentPage();
     const peerJoinButton = await fillHomeJoin(peer.page, primaryCode, "Scout");
     await submitAndWaitForNavigation(peer.page, peerJoinButton, "Join primary room as Scout");
@@ -197,7 +197,7 @@ async (page) => {
       .locator("#room-state [data-player-id][data-x][data-y][data-health]")
       .nth(1)
       .waitFor({ state: "attached", timeout });
-    await waitForRoom(page, { code: primaryCode, status: "lobby", playerCount: 2 }, "Host roster poll");
+    await waitForRoom(page, { code: primaryCode, status: "lobby", playerCount: 2 }, "Host roster SSE update");
     const peerSnapshot = await visibleSnapshot(peer.page);
     const joinedIDs = peerSnapshot.players.map((player) => player.id);
     assert(new Set(joinedIDs).size === 2, "Join primary room", "duplicate roster player IDs found");
@@ -212,7 +212,7 @@ async (page) => {
       "Join primary room",
       "peer sees a different map wall signature or grid dimensions",
     );
-    mark("Independent Scout joined; host poll observed two players and identical map");
+    mark("Independent Scout joined; host SSE update showed two players and identical map");
 
     // 3. Create another room with same username; room identity and state remain isolated.
     const isolated = await newIndependentPage();
@@ -240,7 +240,7 @@ async (page) => {
     assert(Boolean(isolatedID) && isolatedID !== hostID, "Create isolated room", "player ID was not isolated");
     mark("Same username created separate lobby with distinct code and player ID");
 
-    // 4. Start room, observe peer polling, and move or verify rejected invalid direction.
+    // 4. Start room, observe peer SSE updates, and move or verify rejected invalid direction.
     await page.getByRole("button", { name: "Start game", exact: true }).click();
     await waitForRoom(page, { code: primaryCode, status: "active", playerCount: 2 }, "Start primary game");
     await waitForRoom(
@@ -295,7 +295,7 @@ async (page) => {
         { id: hostID, x: expectedX, y: expectedY },
         { timeout },
       ).catch((error) => {
-        throw new Error(`Peer move poll: host position did not update (${error.message})`);
+        throw new Error(`Peer move SSE update: host position did not update (${error.message})`);
       });
       const afterMove = await visibleSnapshot(page);
       const movedHost = playerByID(afterMove, hostID);
@@ -321,7 +321,7 @@ async (page) => {
         from: playerStats(hostBeforeMove),
         to: playerStats(movedHost),
       };
-      mark(`Host moved ${availableDirection}; peer poll observed position and map stayed stable`);
+      mark(`Host moved ${availableDirection}; peer SSE update observed position and map stayed stable`);
     } else {
       const response = await page.context().request.post(`${baseURL}/rooms/${primaryCode}/actions`, {
         form: { direction: "invalid-direction" },
@@ -452,7 +452,7 @@ async (page) => {
     );
     mark("Active room rejected new username with visible error; roster stayed two and second room stayed isolated");
 
-    // 8. Finish from host UI, verify peer polling, then reconnect into finished room.
+    // 8. Finish from host UI, verify peer SSE update, then reconnect into finished room.
     const hostBeforeFinish = playerByID(await visibleSnapshot(page), hostID);
     await page.getByRole("button", { name: "Finish game", exact: true }).click();
     await waitForRoom(page, { code: primaryCode, status: "finished", playerCount: 2 }, "Finish primary game");

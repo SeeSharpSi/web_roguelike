@@ -62,6 +62,7 @@ type Registry struct {
 
 type match struct {
 	mutex         sync.Mutex
+	changed       chan struct{}
 	code          string
 	status        Status
 	hostPlayerID  string
@@ -182,6 +183,7 @@ func (r *Registry) Create(sessionID, username string) (Snapshot, error) {
 		}
 		room := &match{
 			code:          code,
+			changed:       make(chan struct{}),
 			status:        Lobby,
 			hostPlayerID:  playerID,
 			players:       map[string]*participant{playerID: member},
@@ -216,6 +218,16 @@ func (room *match) participantForSessionLocked(sessionID string) *participant {
 		}
 	}
 	return nil
+}
+
+// notifyChangedLocked wakes watchers of the current revision and prepares the
+// broadcast channel for the next revision. The caller must hold room.mutex.
+func (room *match) notifyChangedLocked() {
+	if room.changed == nil {
+		room.changed = make(chan struct{})
+	}
+	close(room.changed)
+	room.changed = make(chan struct{})
 }
 
 func (room *match) snapshotLocked(viewer *participant) Snapshot {
@@ -307,6 +319,7 @@ func (r *Registry) Cleanup(now time.Time, maxIdle time.Duration) {
 		if idle {
 			entry.room.status = Closed
 			entry.room.revision++
+			entry.room.notifyChangedLocked()
 		}
 		entry.room.mutex.Unlock()
 		if idle {

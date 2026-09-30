@@ -4,6 +4,9 @@
 	let selectedSlot = 0;
 	let rosterScrollRoomCode = "";
 	let storedCrewsScrollTop = 0;
+	let leavingRoom = false;
+	const movementFormIDs = new Set(["move-north", "move-south", "move-east", "move-west"]);
+	let movementAvailability = null;
 
 	function roomState() {
 		return document.getElementById("room-state");
@@ -13,17 +16,157 @@
 		return Array.from(state.querySelectorAll("button[data-quick-slot]"));
 	}
 
+	function movementAvailabilityFrom(state) {
+		const availability = new Map();
+		for (const form of state.querySelectorAll(".direction-pad form")) {
+			if (!movementFormIDs.has(form.id)) {
+				continue;
+			}
+			const button = form.querySelector("button");
+			if (button) {
+				availability.set(form.id, button.disabled);
+			}
+		}
+		return availability;
+	}
+
 	function isRoomStateRoot(target) {
 		return target instanceof Element &&
 			target.id === "room-state" &&
-			target.getAttribute("hx-swap") === "outerHTML";
+			target.getAttribute("hx-swap") === "outerMorph";
 	}
 
-	document.addEventListener("htmx:beforeSwap", function (event) {
-		const state = roomState();
-		const target = event.detail && event.detail.target;
-		if (!state || target !== state || !isRoomStateRoot(target)) {
+	function revisionValue(value) {
+		if (typeof value !== "string" || !/^\d+$/.test(value)) {
+			return null;
+		}
+		try {
+			return BigInt(value);
+		} catch {
+			return null;
+		}
+	}
+
+	function incomingRoomState(text) {
+		if (typeof text !== "string") {
+			return null;
+		}
+		const fragment = new DOMParser().parseFromString(text, "text/html");
+		return fragment.getElementById("room-state");
+	}
+
+	function roomPath(code) {
+		if (typeof code !== "string" || !/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
+			return null;
+		}
+		return "/rooms/" + encodeURIComponent(code);
+	}
+
+	function navigateToRoom(code) {
+		if (leavingRoom) {
 			return;
+		}
+		const path = roomPath(code);
+		if (path) {
+			window.location.assign(path);
+		}
+	}
+
+	function isCurrentRoomLeaveSubmission(event) {
+		const form = event.target;
+		const state = roomState();
+		if (!(form instanceof HTMLFormElement) || !state?.contains(form)) {
+			return false;
+		}
+
+		const path = roomPath(state.dataset.roomCode || "");
+		const submitter = event.submitter;
+		const method = submitter?.hasAttribute("formmethod") ? submitter.formMethod : form.method;
+		const action = submitter?.hasAttribute("formaction") ? submitter.formAction : form.action;
+		if (!path || method.toUpperCase() !== "POST") {
+			return false;
+		}
+
+		try {
+			const url = new URL(action, document.baseURI);
+			return url.origin === window.location.origin &&
+				url.pathname === path + "/leave" &&
+				url.search === "" &&
+				url.hash === "";
+		} catch {
+			return false;
+		}
+	}
+
+	document.addEventListener("submit", function (event) {
+		if (!event.defaultPrevented && isCurrentRoomLeaveSubmission(event)) {
+			leavingRoom = true;
+		}
+	});
+
+	document.addEventListener("htmx:before:response", function (event) {
+		const ctx = event.detail && event.detail.ctx;
+		if (!ctx || ctx.sourceElement?.id !== "room-events") {
+			return;
+		}
+
+		const status = ctx.response && (ctx.response.status || ctx.response.raw?.status);
+		if ([401, 404, 410].includes(status)) {
+			navigateToRoom(roomState()?.dataset.roomCode || ctx.sourceElement.dataset.roomCode);
+			event.preventDefault();
+		}
+	});
+
+	document.addEventListener("htmx:sse:error", function (event) {
+		const source = document.getElementById("room-events");
+		const status = event.detail && event.detail.status;
+		if (!source || event.target !== source || ![401, 404, 410].includes(status)) {
+			return;
+		}
+		navigateToRoom(roomState()?.dataset.roomCode || source.dataset.roomCode);
+	});
+
+	document.addEventListener("room-redirect", function (event) {
+		const source = document.getElementById("room-events");
+		if (!source || event.target !== source) {
+			return;
+		}
+		navigateToRoom(roomState()?.dataset.roomCode || source.dataset.roomCode);
+	});
+
+	document.addEventListener("htmx:sse:before:message", function (event) {
+		const message = event.detail && event.detail.message;
+		if (!message || message.event) {
+			return;
+		}
+
+		const state = roomState();
+		const incomingRevision = revisionValue(message.id);
+		const currentRevision = revisionValue(state?.dataset.revision);
+		if (incomingRevision !== null && currentRevision !== null && incomingRevision <= currentRevision) {
+			event.preventDefault();
+		}
+	});
+
+	document.addEventListener("htmx:before:swap", function (event) {
+		const state = roomState();
+		const detail = event.detail;
+		const ctx = detail && detail.ctx;
+		const target = ctx && ctx.target;
+		const mainTask = detail?.tasks?.find((task) => task.type === "main");
+		if (!state || target !== state || !isRoomStateRoot(target) || mainTask?.target !== state) {
+			return;
+		}
+
+		const incoming = incomingRoomState(ctx.text);
+		const incomingRevision = revisionValue(incoming?.dataset.revision);
+		const currentRevision = revisionValue(state.dataset.revision);
+		if (incomingRevision !== null && currentRevision !== null && incomingRevision < currentRevision) {
+			event.preventDefault();
+			return;
+		}
+		if (incoming) {
+			movementAvailability = movementAvailabilityFrom(incoming);
 		}
 
 		const roomCode = state.dataset.roomCode || "";
@@ -170,14 +313,53 @@
 		}
 	});
 
-	document.addEventListener("htmx:afterSwap", function (event) {
+	document.addEventListener("htmx:after:swap", function (event) {
+		const ctx = event.detail && event.detail.ctx;
+		const target = ctx && ctx.target;
+		if (!isRoomStateRoot(target)) {
+			return;
+		}
 		renderSelection();
-		restoreRosterScroll(event.detail && event.detail.target);
+		restoreRosterScroll(target);
 	});
-	document.addEventListener("htmx:afterSettle", renderSelection);
-	if (document.readyState === "loading") {
-		document.addEventListener("DOMContentLoaded", renderSelection, { once: true });
-	} else {
+	document.addEventListener("htmx:finally:request", function (event) {
+		const ctx = event.detail && event.detail.ctx;
+		const state = roomState();
+		const sourceID = ctx?.sourceElement?.id;
+		if (!state || !isRoomStateRoot(state) || ctx?.target !== state || !movementFormIDs.has(sourceID) ||
+			!state.querySelector(`.direction-pad form#${sourceID}`)) {
+			return;
+		}
+
+		// HTMX emits finally:request before reenabling request-disabled controls.
+		queueMicrotask(function () {
+			const current = roomState();
+			if (!current || !isRoomStateRoot(current) || !movementAvailability) {
+				return;
+			}
+
+			// Reassert only directions blocked by latest server snapshot; queued requests may disable allowed ones.
+			for (const [id, disabled] of movementAvailability) {
+				if (!disabled) {
+					continue;
+				}
+				const button = current.querySelector(`.direction-pad form#${id} button`);
+				if (button) {
+					button.disabled = true;
+				}
+			}
+		});
+	});
+	function initializeRoomUI() {
+		const state = roomState();
+		if (state && movementAvailability === null) {
+			movementAvailability = movementAvailabilityFrom(state);
+		}
 		renderSelection();
+	}
+	if (document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", initializeRoomUI, { once: true });
+	} else {
+		initializeRoomUI();
 	}
 })();

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -50,8 +51,9 @@ func main() {
 	go cleanupLoop(ctx, sessionManager, matchRegistry)
 
 	server := http.Server{
-		Addr:    root_ip.Host,
-		Handler: mux,
+		Addr:        root_ip.Host,
+		Handler:     mux,
+		BaseContext: func(net.Listener) context.Context { return ctx },
 	}
 	shutdownDone := make(chan struct{})
 	go func() {

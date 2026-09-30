@@ -1561,7 +1561,7 @@ p {
 	overflow-y: auto;
 }
 
-.htmx-request button[type="submit"] {
+form.htmx-request button[type="submit"] {
 	opacity: 0.65;
 }
 

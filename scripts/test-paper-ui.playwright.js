@@ -52,6 +52,69 @@ async (page) => {
     });
   }
 
+  async function installSwapTracking() {
+    await page.evaluate(() => {
+      if (window.__paperUITestSwapTrackingInstalled) return;
+      window.__paperUITestSwapTrackingInstalled = true;
+      window.__paperUITestAfterSwapCount = 0;
+      document.addEventListener("htmx:after:swap", () => {
+        window.__paperUITestAfterSwapCount += 1;
+      });
+    });
+  }
+
+  async function afterSwapCount() {
+    return page.evaluate(() => window.__paperUITestAfterSwapCount || 0);
+  }
+
+  async function pushUnchangedViewerUpdates(code, viewerContext, viewerPage, username, step) {
+    const startingRevision = Number(await page.locator("#room-state").getAttribute("data-revision"));
+    const browser = page.context().browser();
+    assert(Boolean(browser), step, "page has no browser instance");
+    const temporaryContext = await browser.newContext();
+
+    async function reconnect(context, label) {
+      const response = await context.request.post(`${baseURL}/rooms/${code}/join`, {
+        form: { username },
+        maxRedirects: 0,
+      });
+      assert(
+        response.status() >= 200 && response.status() < 400,
+        step,
+        `${label} reconnect returned HTTP ${response.status()}`,
+      );
+    }
+
+    try {
+      let expectedRevision = startingRevision;
+      let expectedSwaps = await afterSwapCount();
+      await reconnect(temporaryContext, "Temporary takeover");
+      await page.waitForFunction(
+        ({ revision, swaps }) =>
+          Number(document.querySelector("#room-state")?.dataset.revision) > revision &&
+          (window.__paperUITestAfterSwapCount || 0) > swaps,
+        { revision: expectedRevision, swaps: expectedSwaps },
+        { timeout },
+      );
+
+      expectedRevision = Number(await page.locator("#room-state").getAttribute("data-revision"));
+      expectedSwaps = await afterSwapCount();
+      await reconnect(viewerContext, "Original viewer restore");
+      await page.waitForFunction(
+        ({ revision, swaps }) =>
+          Number(document.querySelector("#room-state")?.dataset.revision) > revision &&
+          (window.__paperUITestAfterSwapCount || 0) > swaps,
+        { revision: expectedRevision, swaps: expectedSwaps },
+        { timeout },
+      );
+    } finally {
+      await temporaryContext.close().catch(() => {});
+    }
+
+    await viewerPage.goto(`${baseURL}/rooms/${code}`, { waitUntil: "domcontentloaded", timeout });
+    await waitForRoom(viewerPage, { code }, `${step}: restore original guest page`);
+  }
+
   async function newIndependentPage() {
     const browser = page.context().browser();
     assert(Boolean(browser), "Create independent guest context", "page has no browser instance");
@@ -200,7 +263,7 @@ async (page) => {
     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
   }
 
-  async function checkLargeViewport(width, height, baseline) {
+  async function checkLargeViewport(width, height, baseline, stabilityViewer = null) {
     await page.setViewportSize({ width, height });
     await waitForLayoutFrame();
     const geometry = await measureDesktopGeometry();
@@ -321,11 +384,10 @@ async (page) => {
         })}`,
       );
 
-      await page.evaluate(() => {
-        window.__paperUITestAfterSwapCount = 0;
-      });
-      const beforePolls = await measureDesktopGeometry();
-      const beforePollState = await page.evaluate(() => ({
+      assert(Boolean(stabilityViewer), step, "real viewer reconnects were not configured for SSE stability check");
+      const beforeSwapCount = await afterSwapCount();
+      const beforePushes = await measureDesktopGeometry();
+      const beforePushState = await page.evaluate(() => ({
         scrollX: window.scrollX,
         scrollY: window.scrollY,
         rosterScrollTop: document.querySelector(".player-list")?.scrollTop || 0,
@@ -333,10 +395,21 @@ async (page) => {
         currentRoom: document.querySelector("#room-state")?.dataset.currentRoom || "",
         detailName: document.querySelector("[data-detail-name]")?.textContent?.trim() || "",
       }));
-      await page.waitForFunction(() => window.__paperUITestAfterSwapCount >= 2, null, { timeout });
+      await pushUnchangedViewerUpdates(
+        stabilityViewer.code,
+        stabilityViewer.context,
+        stabilityViewer.page,
+        stabilityViewer.username,
+        `${step} SSE layout stability`,
+      );
+      await page.waitForFunction(
+        (count) => (window.__paperUITestAfterSwapCount || 0) >= count + 2,
+        beforeSwapCount,
+        { timeout },
+      );
       await waitForLayoutFrame();
-      const afterPolls = await measureDesktopGeometry();
-      const afterPollState = await page.evaluate(() => ({
+      const afterPushes = await measureDesktopGeometry();
+      const afterPushState = await page.evaluate(() => ({
         scrollX: window.scrollX,
         scrollY: window.scrollY,
         rosterScrollTop: document.querySelector(".player-list")?.scrollTop || 0,
@@ -358,41 +431,41 @@ async (page) => {
       for (const name of stableBoxes) {
         for (const dimension of ["x", "y", "width", "height"]) {
           assertNear(
-            afterPolls[name][dimension],
-            beforePolls[name][dimension],
-            `${width}×${height} polling stability`,
+            afterPushes[name][dimension],
+            beforePushes[name][dimension],
+            `${width}×${height} SSE stability`,
             `${name}.${dimension}`,
             1,
           );
         }
       }
-      assertNear(afterPolls.type.mapHeading, beforePolls.type.mapHeading, step, "heading font after two polls", 1);
-      assertNear(afterPolls.type.roomDescription, beforePolls.type.roomDescription, step, "readout font after two polls", 1);
-      assertNear(afterPolls.type.moveButton, beforePolls.type.moveButton, step, "movement-control font after two polls", 1);
-      assertNear(afterPolls.mapDimensions.cellSize, beforePolls.mapDimensions.cellSize, step, "map cell after two polls", 1);
+      assertNear(afterPushes.type.mapHeading, beforePushes.type.mapHeading, step, "heading font after two SSE pushes", 1);
+      assertNear(afterPushes.type.roomDescription, beforePushes.type.roomDescription, step, "readout font after two SSE pushes", 1);
+      assertNear(afterPushes.type.moveButton, beforePushes.type.moveButton, step, "movement-control font after two SSE pushes", 1);
+      assertNear(afterPushes.mapDimensions.cellSize, beforePushes.mapDimensions.cellSize, step, "map cell after two SSE pushes", 1);
       assertNear(
-        afterPolls.mapDimensions.quickSlotHeight,
-        beforePolls.mapDimensions.quickSlotHeight,
+        afterPushes.mapDimensions.quickSlotHeight,
+        beforePushes.mapDimensions.quickSlotHeight,
         step,
-        "quick-slot height after two polls",
+        "quick-slot height after two SSE pushes",
         1,
       );
       assert(
-        afterPolls.mapDimensions.width === beforePolls.mapDimensions.width &&
-          afterPolls.mapDimensions.length === beforePolls.mapDimensions.length &&
-          afterPolls.document.width === beforePolls.document.width &&
-          afterPolls.document.height === beforePolls.document.height &&
-          afterPollState.selectedSlot === beforePollState.selectedSlot &&
-          afterPollState.currentRoom === beforePollState.currentRoom &&
-          afterPollState.detailName === beforePollState.detailName &&
-          Math.abs(afterPollState.rosterScrollTop - beforePollState.rosterScrollTop) <= 1 &&
-          afterPollState.scrollX === beforePollState.scrollX &&
-          afterPollState.scrollY === beforePollState.scrollY,
+        afterPushes.mapDimensions.width === beforePushes.mapDimensions.width &&
+          afterPushes.mapDimensions.length === beforePushes.mapDimensions.length &&
+          afterPushes.document.width === beforePushes.document.width &&
+          afterPushes.document.height === beforePushes.document.height &&
+          afterPushState.selectedSlot === beforePushState.selectedSlot &&
+          afterPushState.currentRoom === beforePushState.currentRoom &&
+          afterPushState.detailName === beforePushState.detailName &&
+          Math.abs(afterPushState.rosterScrollTop - beforePushState.rosterScrollTop) <= 1 &&
+          afterPushState.scrollX === beforePushState.scrollX &&
+          afterPushState.scrollY === beforePushState.scrollY,
         step,
-        `poll swaps changed chart/layout or reset UI state: before=${JSON.stringify({ geometry: beforePolls, state: beforePollState })}, after=${JSON.stringify({ geometry: afterPolls, state: afterPollState })}`,
+        `SSE pushes changed chart/layout or reset UI state: before=${JSON.stringify({ geometry: beforePushes, state: beforePushState })}, after=${JSON.stringify({ geometry: afterPushes, state: afterPushState })}`,
       );
-      geometry.pollStability = {
-        afterSwaps: await page.evaluate(() => window.__paperUITestAfterSwapCount),
+      geometry.sseStability = {
+        afterSwaps: (await afterSwapCount()) - beforeSwapCount,
         stable: true,
       };
     }
@@ -414,7 +487,7 @@ async (page) => {
       readoutFontSize: geometry.type.roomDescription,
       movementButtonSize: { width: geometry.moveButton.width, height: geometry.moveButton.height },
       quickSlotHeight: geometry.mapDimensions.quickSlotHeight,
-      pollStability: geometry.pollStability || null,
+      sseStability: geometry.sseStability || null,
     };
   }
 
@@ -637,20 +710,27 @@ async (page) => {
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
 
-    // Create disposable rooms through the real home form until generated starting room has an object.
+    // Create disposable rooms through the real home form until generated starting room has an object and a visible wall.
     let roomCode = "";
     for (let attempt = 0; attempt < 16; attempt++) {
       roomCode = await createRoom(page, "Mira Voss");
-      if ((await page.locator("#room-state button[data-quick-slot]").count()) > 0) break;
-      assert(attempt < 15, "Find an inspectable starting-room object", "16 generated rooms had no quick-slot object");
+      const hasInspectableObject = (await page.locator("#room-state button[data-quick-slot]").count()) > 0;
+      const hasVisibleWall = (await page.locator("#room-state .map-wall").count()) > 0;
+      if (hasInspectableObject && hasVisibleWall) break;
+      assert(
+        attempt < 15,
+        "Find starting-room inspection and wall fixtures",
+        "16 generated rooms lacked either a quick-slot object or visible wall metadata",
+      );
       await submitAndWaitForNavigation(
         page,
         page.getByRole("button", { name: "Leave game", exact: true }),
-        `Leave empty candidate room ${roomCode}`,
+        `Leave incomplete candidate room ${roomCode}`,
       );
       roomCode = "";
     }
-    assert(Boolean(roomCode), "Find an inspectable starting-room object", "no candidate room retained");
+    assert(Boolean(roomCode), "Find starting-room inspection and wall fixtures", "no candidate room retained");
+    await installSwapTracking();
     mark(`Created owned room ${roomCode} through home form with an inspectable starting-room object`);
 
     // Join three independent browser contexts, preserving this primary page for final review.
@@ -660,7 +740,7 @@ async (page) => {
       await submitAndWaitForNavigation(guest.page, joinButton, `Join ${roomCode} as ${username}`);
       await waitForRoom(guest.page, { code: roomCode, status: "lobby" }, `Guest observes ${username} join`);
     }
-    await waitForRoom(page, { code: roomCode, status: "lobby", playerCount: 4 }, "Primary roster poll");
+    await waitForRoom(page, { code: roomCode, status: "lobby", playerCount: 4 }, "Primary roster SSE update");
     assert(
       (await page.locator("#room-state .player-avatar").textContent())?.trim() === "P2",
       "Viewer roster number",
@@ -671,7 +751,7 @@ async (page) => {
       rows.find((row) => row.textContent.includes("Mira Voss"))?.getAttribute("data-player-id") || "",
     );
     assert(Boolean(hostRow), "Find host player", "Mira Voss roster row has no data-player-id");
-    mark("Three independent guests joined; host row, P2 avatar, and username rendered after polling");
+    mark("Three independent guests joined; host row, P2 avatar, and username rendered after SSE updates");
 
     const geometries = await measureDesktopGeometry();
     const desktopBaseline = await checkLargeViewport(1440, 900, geometries);
@@ -736,47 +816,16 @@ async (page) => {
     );
     mark("Body/floor and inline wall palette verified; SVG walls use 3px strokes with unique shared edges");
 
-    // Exercise native dialog against two real htmx polling swaps.
+    // Keep the native inspector open across two genuine guest-join revisions.
     const quickSlots = page.locator("#room-state button[data-quick-slot]");
     const firstSlot = quickSlots.first();
     const itemName = await firstSlot.getAttribute("data-item-name");
     const itemDescription = await firstSlot.getAttribute("data-item-description");
     assert(Boolean(itemName && itemDescription), "Inspect room object", "first quick slot lacks real item metadata");
-    await page.evaluate(() => {
-      window.__paperUITestAfterSwapCount = 0;
-      document.addEventListener("htmx:afterSwap", () => {
-        window.__paperUITestAfterSwapCount += 1;
-      });
-    });
-    await page.locator("#room-state [data-inspect-trigger]").click();
     const dialog = page.locator("dialog[data-inspect-dialog]");
+    await page.locator("#room-state [data-inspect-trigger]").click();
     await dialog.waitFor({ state: "visible", timeout });
-    await page.waitForFunction(() => window.__paperUITestAfterSwapCount >= 2, null, { timeout });
-    assert(await dialog.evaluate((node) => node.open), "Inspect dialog polling regression", "dialog closed during htmx swaps");
-    assert(
-      (await dialog.locator("[data-dialog-name]").textContent())?.trim() === itemName &&
-        (await dialog.locator("[data-dialog-description]").textContent())?.trim() === itemDescription,
-      "Inspect dialog polling regression",
-      "dialog item name or description changed during polling",
-    );
-    await dialog.getByRole("button", { name: "Close", exact: true }).click();
-    await dialog.waitFor({ state: "hidden", timeout });
-    if ((await quickSlots.count()) > 1) {
-      const secondSlot = quickSlots.nth(1);
-      await secondSlot.click();
-      assert((await secondSlot.getAttribute("aria-pressed")) === "true", "Quick-slot selection", "click did not select slot 2");
-      await page.keyboard.press("1");
-      assert(
-        (await firstSlot.getAttribute("aria-pressed")) === "true" &&
-          (await secondSlot.getAttribute("aria-pressed")) === "false",
-        "Quick-slot keyboard selection",
-        "keyboard 1 did not restore slot 1 aria-pressed state",
-      );
-    } else {
-      await page.keyboard.press("1");
-      assert((await firstSlot.getAttribute("aria-pressed")) === "true", "Quick-slot keyboard selection", "keyboard 1 did not select slot 1");
-    }
-    mark("Inspect dialog retained real item details across two htmx polls; Close and keyboard slot selection worked");
+    const dialogSwapBaseline = await afterSwapCount();
 
     // Grow roster to eight through four more independent home-form joins.
     const finalUsers = ["Ada Venn", "Iona Reed", "Kael Dorne", "Tessa Wren"];
@@ -790,10 +839,43 @@ async (page) => {
         { code: roomCode, status: "lobby", playerCount: index + 5 },
         `Guest observes ${username} join`,
       );
+      await waitForRoom(page, { code: roomCode, status: "lobby", playerCount: index + 5 }, `Host observes ${username} over SSE`);
+      if (index === 1) {
+        await page.waitForFunction(
+          (count) => (window.__paperUITestAfterSwapCount || 0) >= count + 2,
+          dialogSwapBaseline,
+          { timeout },
+        );
+        assert(await dialog.evaluate((node) => node.open), "Inspect dialog SSE regression", "dialog closed during real room updates");
+        assert(
+          (await dialog.locator("[data-dialog-name]").textContent())?.trim() === itemName &&
+            (await dialog.locator("[data-dialog-description]").textContent())?.trim() === itemDescription,
+          "Inspect dialog SSE regression",
+          "dialog item name or description changed during SSE updates",
+        );
+        await dialog.getByRole("button", { name: "Close", exact: true }).click();
+        await dialog.waitFor({ state: "hidden", timeout });
+        if ((await quickSlots.count()) > 1) {
+          const secondSlot = quickSlots.nth(1);
+          await secondSlot.click();
+          assert((await secondSlot.getAttribute("aria-pressed")) === "true", "Quick-slot selection", "click did not select slot 2");
+          await page.keyboard.press("1");
+          assert(
+            (await firstSlot.getAttribute("aria-pressed")) === "true" &&
+              (await secondSlot.getAttribute("aria-pressed")) === "false",
+            "Quick-slot keyboard selection",
+            "keyboard 1 did not restore slot 1 aria-pressed state",
+          );
+        } else {
+          await page.keyboard.press("1");
+          assert((await firstSlot.getAttribute("aria-pressed")) === "true", "Quick-slot keyboard selection", "keyboard 1 did not select slot 1");
+        }
+        mark("Inspect dialog retained real item details across two guest-join SSE pushes; Close and keyboard slot selection worked");
+      }
     }
-    await waitForRoom(page, { code: roomCode, status: "lobby", playerCount: 8 }, "Eight-player primary roster poll");
+    await waitForRoom(page, { code: roomCode, status: "lobby", playerCount: 8 }, "Eight-player primary roster SSE update");
+    const rosterSwapBaseline = await afterSwapCount();
     const crewScrollStart = await page.evaluate(() => {
-      window.__paperUITestAfterSwapCount = 0;
       const list = document.querySelector("#room-state .player-list");
       if (!list) return null;
       const target = Math.max(0, list.scrollHeight - list.clientHeight);
@@ -806,12 +888,23 @@ async (page) => {
       "Eight-player crew scroll",
       `eight rows did not create a scrollable list: ${JSON.stringify(crewScrollStart)}`,
     );
-    await page.waitForFunction(() => window.__paperUITestAfterSwapCount >= 2, null, { timeout });
+    await pushUnchangedViewerUpdates(
+      roomCode,
+      guestContexts[guestContexts.length - 1],
+      guestPages[guestPages.length - 1],
+      finalUsers[finalUsers.length - 1],
+      "Eight-player roster SSE scroll stability",
+    );
+    await page.waitForFunction(
+      (count) => (window.__paperUITestAfterSwapCount || 0) >= count + 2,
+      rosterSwapBaseline,
+      { timeout },
+    );
     const crewScroll = await page.locator("#room-state .player-list").evaluate((list) => {
       const listBox = list.getBoundingClientRect();
       const rows = Array.from(list.querySelectorAll(".player-row"));
       return {
-        afterPolls: window.__paperUITestAfterSwapCount,
+        afterSwaps: window.__paperUITestAfterSwapCount,
         scrollTop: list.scrollTop,
         rows: rows.slice(-2).map((row) => {
           const box = row.getBoundingClientRect();
@@ -826,9 +919,9 @@ async (page) => {
       };
     });
     assert(
-      crewScroll.afterPolls >= 2 && Math.abs(crewScroll.scrollTop - crewScrollStart.scrollTop) <= 2,
-      "Eight-player crew scroll across polling swaps",
-      `scroll position changed after polling: start=${crewScrollStart.scrollTop}, result=${JSON.stringify(crewScroll)}`,
+      crewScroll.afterSwaps >= rosterSwapBaseline + 2 && Math.abs(crewScroll.scrollTop - crewScrollStart.scrollTop) <= 2,
+      "Eight-player crew scroll across SSE pushes",
+      `scroll position changed after SSE updates: start=${crewScrollStart.scrollTop}, result=${JSON.stringify(crewScroll)}`,
     );
     assert(
       crewScroll.rows.length === 2 &&
@@ -838,9 +931,15 @@ async (page) => {
       "Eight-player roster tail reachability",
       `players P7/P8 are not reachable at scroll end: ${JSON.stringify(crewScroll)}`,
     );
-    mark("Eight-player roster scroll stayed at bottom across two polls; P7/P8 rows remain reachable");
+    mark("Eight-player roster scroll stayed at bottom across two real SSE pushes; P7/P8 rows remain reachable");
 
     const largeViewports = [desktopBaseline];
+    const stabilityViewer = {
+      code: roomCode,
+      context: guestContexts[guestContexts.length - 1],
+      page: guestPages[guestPages.length - 1],
+      username: finalUsers[finalUsers.length - 1],
+    };
     for (const [width, height] of [
       [1920, 1080],
       [2560, 1440],
@@ -848,7 +947,7 @@ async (page) => {
       [1920, 1800],
       [1440, 1200],
     ]) {
-      largeViewports.push(await checkLargeViewport(width, height, geometries));
+      largeViewports.push(await checkLargeViewport(width, height, geometries, stabilityViewer));
     }
     const tallViewport = largeViewports.find((entry) => entry.viewport.width === 1440 && entry.viewport.height === 1200);
     assert(
@@ -861,7 +960,7 @@ async (page) => {
       "1440×1200 workspace fill",
       `workspace did not expand with viewport height: baseline=${geometries.tacticalWorkspace.height}px, tall=${tallViewport.workspace.height}px`,
     );
-    mark("1920×1080, 2560×1440, ultrawide, and tall layouts fill viewport and scale chart/HUD; 2560 polling swaps do not shift layout");
+    mark("1920×1080, 2560×1440, ultrawide, and tall layouts fill viewport and scale chart/HUD; two SSE pushes at 2560px do not shift layout");
 
     // Start via host UI, verify all peers observe active status, then move through a legal direction if one exists.
     await page.getByRole("button", { name: "Start game", exact: true }).click();
@@ -980,7 +1079,7 @@ async (page) => {
         chartedAfter,
         currentRoom: readout.coordinate,
       };
-      mark(`Host moved ${availableDirection}; chart, coordinates, item detail, and active peer polls updated`);
+      mark(`Host moved ${availableDirection}; chart, coordinates, item detail, and active peer SSE updates rendered`);
     } else {
       const disabledDirections = await page.locator("#room-state .direction-pad button").evaluateAll((buttons) =>
         buttons.filter((button) => !button.disabled).map((button) => button.getAttribute("aria-label")),

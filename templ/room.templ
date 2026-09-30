@@ -12,7 +12,17 @@ templ RoomPage(snapshot match.Snapshot, message string) {
 	<html lang="en">
 		@PageHead("Room " + snapshot.Code + " · The Hollow Sector")
 		<body class="room-body">
-			<main id="room-sync" class="room-sync" hx-sync="this:queue">
+			<main id="room-sync" class="room-sync">
+				<div
+					id="room-events"
+					hidden
+					data-room-code={ snapshot.Code }
+					hx-sse:connect={ "/rooms/" + snapshot.Code + "/events" }
+					hx-sse:close="room-redirect"
+					hx-target="#room-state"
+					hx-swap="outerMorph"
+					hx-config={ "{\"sse\":{\"pauseOnBackground\":false}}" }
+				></div>
 				@RoomState(snapshot, message)
 				@InspectDialog()
 			</main>
@@ -30,11 +40,7 @@ templ RoomState(snapshot match.Snapshot, message string) {
 		data-current-room={ coordinateLabel(snapshot.Viewer.Player.Position, snapshot.World.Length) }
 		data-revision={ strconv.FormatUint(snapshot.Revision, 10) }
 		data-status={ string(snapshot.Status) }
-		hx-get={ "/rooms/" + snapshot.Code + "/state" }
-		hx-trigger="every 1.5s"
-		hx-target="this"
-		hx-swap="outerHTML"
-		hx-sync="#room-sync:queue"
+		hx-swap="outerMorph"
 		aria-live="polite"
 	>
 		<header class="mission-header">
@@ -111,7 +117,7 @@ templ RoomState(snapshot match.Snapshot, message string) {
 							<div class="game-action-area">
 								if snapshot.Status == match.Lobby {
 									if snapshot.Viewer.ID == snapshot.HostPlayerID {
-										<form method="post" action={ "/rooms/" + snapshot.Code + "/start" } hx-post={ "/rooms/" + snapshot.Code + "/start" } hx-target="#room-state" hx-swap="outerHTML" hx-sync="#room-sync:queue" hx-disabled-elt="find button">
+										<form id="game-action" method="post" action={ "/rooms/" + snapshot.Code + "/start" } hx-post={ "/rooms/" + snapshot.Code + "/start" } hx-target="#room-state" hx-swap="outerMorph" hx-sync="#room-sync:queue" hx-disable="find button">
 											<button type="submit" class="game-action-button">Start game</button>
 										</form>
 									} else {
@@ -119,7 +125,7 @@ templ RoomState(snapshot match.Snapshot, message string) {
 									}
 								} else if snapshot.Status == match.Active {
 									if snapshot.Viewer.ID == snapshot.HostPlayerID {
-										<form method="post" action={ "/rooms/" + snapshot.Code + "/finish" } hx-post={ "/rooms/" + snapshot.Code + "/finish" } hx-target="#room-state" hx-swap="outerHTML" hx-sync="#room-sync:queue" hx-disabled-elt="find button">
+										<form id="game-action" method="post" action={ "/rooms/" + snapshot.Code + "/finish" } hx-post={ "/rooms/" + snapshot.Code + "/finish" } hx-target="#room-state" hx-swap="outerMorph" hx-sync="#room-sync:queue" hx-disable="find button">
 											<button type="submit" class="game-action-button game-action-finish">Finish game</button>
 										</form>
 									} else {
@@ -264,7 +270,7 @@ templ InspectDialog() {
 }
 
 templ MovementForm(snapshot match.Snapshot, direction, label string, possible bool) {
-	<form method="post" action={ "/rooms/" + snapshot.Code + "/actions" } hx-post={ "/rooms/" + snapshot.Code + "/actions" } hx-target="#room-state" hx-swap="outerHTML" hx-sync="#room-sync:queue" hx-disabled-elt="find button">
+	<form id={ "move-" + direction } method="post" action={ "/rooms/" + snapshot.Code + "/actions" } hx-post={ "/rooms/" + snapshot.Code + "/actions" } hx-target="#room-state" hx-swap="outerMorph" hx-sync="#room-sync:queue" hx-disable="find button">
 		<input type="hidden" name="direction" value={ direction }/>
 		if possible && snapshot.Status == match.Active {
 			<button type="submit" aria-label={ "Move " + direction } title={ "Move " + direction }>{ label }</button>

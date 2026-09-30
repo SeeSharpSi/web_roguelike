@@ -9,15 +9,8 @@ templ PageHead(title string) {
 		<link rel="stylesheet" type="text/css" href="/static/styles.css"/>
 		<link rel="stylesheet" type="text/css" href="/static/map.css"/>
 		<script type="text/javascript" src="/static/htmx.min.js"></script>
+		<script type="text/javascript" src="/static/hx-sse.js"></script>
 		<script type="text/javascript" src="/static/game-ui.js" defer></script>
-		<script>
-			document.addEventListener("htmx:beforeSwap", function (event) {
-				if ([400, 401, 403, 404, 409, 410, 413, 422].includes(event.detail.xhr.status)) {
-					event.detail.shouldSwap = true;
-					event.detail.isError = false;
-				}
-			});
-		</script>
 	</head>
 }
 

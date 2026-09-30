@@ -41,6 +41,7 @@ func (r *Registry) Join(code, sessionID, username string) (Snapshot, error) {
 		}
 		if changed {
 			room.revision++
+			room.notifyChangedLocked()
 		}
 		room.lastActivity = time.Now()
 		return room.snapshotLocked(member), nil
@@ -72,27 +73,38 @@ func (r *Registry) Join(code, sessionID, username string) (Snapshot, error) {
 	room.players[playerID] = member
 	room.usernameIndex[usernameKey] = playerID
 	room.revision++
+	room.notifyChangedLocked()
 	room.lastActivity = time.Now()
 	return room.snapshotLocked(member), nil
 }
 
 // Snapshot returns an authorized, deeply independent view of a match.
 func (r *Registry) Snapshot(code, sessionID string) (Snapshot, error) {
+	snapshot, _, err := r.Watch(code, sessionID)
+	return snapshot, err
+}
+
+// Watch returns an authorized snapshot and the broadcast channel for its next
+// revision. Snapshot and channel are captured atomically under the match lock.
+func (r *Registry) Watch(code, sessionID string) (Snapshot, <-chan struct{}, error) {
 	room, err := r.room(code)
 	if err != nil {
-		return Snapshot{}, err
+		return Snapshot{}, nil, err
 	}
 	room.mutex.Lock()
 	defer room.mutex.Unlock()
 	if room.status == Closed {
-		return Snapshot{}, ErrClosed
+		return Snapshot{}, nil, ErrClosed
 	}
 	viewer := room.participantForSessionLocked(sessionID)
 	if viewer == nil {
-		return Snapshot{}, ErrNotMember
+		return Snapshot{}, nil, ErrNotMember
 	}
 	room.lastActivity = time.Now()
-	return room.snapshotLocked(viewer), nil
+	if room.changed == nil {
+		room.changed = make(chan struct{})
+	}
+	return room.snapshotLocked(viewer), room.changed, nil
 }
 
 // Start transitions a host-owned lobby to active play.
@@ -122,6 +134,7 @@ func (r *Registry) Start(code, sessionID string) (Snapshot, error) {
 	}
 	room.status = Active
 	room.revision++
+	room.notifyChangedLocked()
 	room.lastActivity = time.Now()
 	return room.snapshotLocked(viewer), nil
 }
@@ -177,6 +190,7 @@ func (r *Registry) Move(code, sessionID, direction string) (Snapshot, error) {
 	viewer.player.Position = target
 	room.world.Explored[target] = room.world.Rooms[target]
 	room.revision++
+	room.notifyChangedLocked()
 	room.lastActivity = time.Now()
 	return room.snapshotLocked(viewer), nil
 }
@@ -204,6 +218,7 @@ func (r *Registry) Finish(code, sessionID string) (Snapshot, error) {
 	}
 	room.status = Finished
 	room.revision++
+	room.notifyChangedLocked()
 	room.lastActivity = time.Now()
 	return room.snapshotLocked(viewer), nil
 }
@@ -227,7 +242,6 @@ func (r *Registry) Leave(code, sessionID string) error {
 	delete(room.players, member.id)
 	delete(room.usernameIndex, member.usernameKey)
 	room.revision++
-	room.lastActivity = time.Now()
 
 	closed := false
 	if member.id == room.hostPlayerID {
@@ -243,6 +257,8 @@ func (r *Registry) Leave(code, sessionID string) error {
 		room.hostPlayerID = ""
 		closed = true
 	}
+	room.notifyChangedLocked()
+	room.lastActivity = time.Now()
 	room.mutex.Unlock()
 	if closed {
 		r.removeIfSame(room.code, room)

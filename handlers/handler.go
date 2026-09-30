@@ -45,6 +45,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /rooms/{code}/join", h.JoinRoomByCode)
 	mux.HandleFunc("GET /rooms/{code}", h.Room)
 	mux.HandleFunc("GET /rooms/{code}/state", h.RoomState)
+	mux.HandleFunc("GET /rooms/{code}/events", h.RoomEvents)
 	mux.HandleFunc("POST /rooms/{code}/start", h.Start)
 	mux.HandleFunc("POST /rooms/{code}/actions", h.Move)
 	mux.HandleFunc("POST /rooms/{code}/finish", h.Finish)

@@ -24,6 +24,8 @@
 - A match owns one map and separate players. Game actions and snapshots authorize the requesting session and synchronize access through a per-match mutex.
 - Session access returns copies. Match snapshots must deep-copy map entries, room pointers, and item slices before releasing the match lock.
 - Sessions and matches are process-local and disappear on restart. Background cleanup removes sessions idle for 24 hours and matches idle for two hours; expiring a session does not delete its player.
+- Room updates use HTMX 4.0.0 with its vendored `hx-sse` extension. Keep the stream element outside the morphed room state. Broadcast match revision changes under the match lock; render authorized snapshots after releasing it. Keepalive comments must not refresh the interface.
+- The vendored SSE extension handles rejected reader cancellation during cleanup. Preserve this local fix when updating the extension.
 - New players join only in the lobby. Existing players can reconnect after the game starts or finishes. Explicitly leaving abandons the player; the host transfers to a remaining player.
 
 ## Game quirks
