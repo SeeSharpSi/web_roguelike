@@ -1,24 +1,99 @@
 package templ
 
-templ Index() {
+templ PageHead(title string) {
+	<head>
+		<title>{ title }</title>
+		<meta charset="UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%232a273f'/%3E%3Cpath d='M4 4h8v2H6v2h5v2H6v2H4z' fill='%23c4a7e7'/%3E%3C/svg%3E"/>
+		<link rel="stylesheet" type="text/css" href="/static/styles.css"/>
+		<script type="text/javascript" src="/static/htmx.min.js"></script>
+		<script>
+			document.addEventListener("htmx:beforeSwap", function (event) {
+				if ([400, 401, 403, 404, 409, 410, 413, 422].includes(event.detail.xhr.status)) {
+					event.detail.shouldSwap = true;
+					event.detail.isError = false;
+				}
+			});
+		</script>
+	</head>
+}
+
+templ Index(username, code, message string) {
 	<!DOCTYPE html>
 	<html lang="en">
-		<head>
-			<title>Page Title</title>
-			<meta charset="UTF-8"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<link rel="stylesheet" type="text/css" href="/static/styles.css"/>
-			<script type="text/javascript" src="/static/htmx.min.js"></script>
-			@ThemeVariables("replace me with a style from styles.templ")
-			<style>
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-        }
-    </style>
-		</head>
+		@PageHead("Shared Roguelike")
 		<body>
-			<h1 hx-get="/test" hx-swap="outerHTML">My Website</h1>
-			<p>A website created by me.</p>
+			<main class="page-shell home-shell">
+				<header class="site-heading">
+					<p class="eyebrow">Shared-world multiplayer</p>
+					<h1>Roguelike rooms</h1>
+					<p class="intro">Explore one shared map with friends. Create a room or join with its code.</p>
+				</header>
+				if message != "" {
+					<p class="notice error-notice" role="alert">{ message }</p>
+				}
+				<div class="lobby-cards">
+					<section class="card" aria-labelledby="create-heading">
+						<h2 id="create-heading">Create a game</h2>
+						<form method="post" action="/rooms" class="stack-form">
+							<label for="create-username">Username</label>
+							<input id="create-username" name="username" value={ username } maxlength="32" autocomplete="nickname" required/>
+							<button type="submit">Create room</button>
+						</form>
+					</section>
+					<section class="card" aria-labelledby="join-heading">
+						<h2 id="join-heading">Join a game</h2>
+						<form method="post" action="/rooms/join" class="stack-form">
+							<label for="join-code">Room code</label>
+							<input id="join-code" name="code" value={ code } maxlength="16" autocapitalize="characters" required/>
+							<label for="join-username">Username</label>
+							<input id="join-username" name="username" value={ username } maxlength="32" autocomplete="nickname" required/>
+							<button type="submit">Join room</button>
+						</form>
+					</section>
+				</div>
+				<p class="reconnect-note">To reconnect after losing your browser session, enter the same room code and username. Your latest connection takes control of your existing player.</p>
+			</main>
+		</body>
+	</html>
+}
+
+templ JoinRoomPage(code, username, message string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		@PageHead("Join room " + code)
+		<body>
+			<main class="page-shell narrow-shell">
+				<a class="back-link" href="/">Back to rooms</a>
+				<p class="eyebrow">Room code</p>
+				<h1>{ code }</h1>
+				if message != "" {
+					<p class="notice error-notice" role="alert">{ message }</p>
+				} else {
+					<p class="intro">Enter a username to join this room. Returning players reconnect to their existing character.</p>
+				}
+				<form method="post" action={ "/rooms/" + code + "/join" } class="stack-form card">
+					<label for="room-username">Username</label>
+					<input id="room-username" name="username" value={ username } maxlength="32" autocomplete="nickname" required/>
+					<button type="submit">Join room</button>
+				</form>
+			</main>
+		</body>
+	</html>
+}
+
+templ MissingRoomPage(code string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		@PageHead("Room unavailable")
+		<body>
+			<main class="page-shell narrow-shell">
+				<p class="eyebrow">Room unavailable</p>
+				<h1>{ code }</h1>
+				<p class="notice error-notice" role="alert">This room does not exist or is no longer available.</p>
+				<a class="button-link" href="/">Return to rooms</a>
+			</main>
 		</body>
 	</html>
 }

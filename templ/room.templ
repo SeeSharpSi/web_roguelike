@@ -1,0 +1,170 @@
+package templ
+
+import (
+	"strconv"
+
+	"seesharpsi/web_roguelike/match"
+)
+
+templ RoomPage(snapshot match.Snapshot, message string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		@PageHead("Room " + snapshot.Code + " · Shared Roguelike")
+		<body>
+			<main class="page-shell room-shell">
+				<header class="room-heading">
+					<div>
+						<a class="back-link" href="/">Back to rooms</a>
+						<p class="eyebrow">Shared room</p>
+						<h1>Room <span class="room-code">{ snapshot.Code }</span></h1>
+					</div>
+					<div class="share-card">
+						<span class="muted-label">Invite players</span>
+						<strong>/rooms/{ snapshot.Code }</strong>
+						<span>Share this address with your group.</span>
+					</div>
+				</header>
+				<p class="current-player">Playing as <strong>{ snapshot.Viewer.Username }</strong></p>
+				if message != "" {
+					<p class="notice error-notice" role="alert">{ message }</p>
+				}
+				<div id="room-sync" hx-sync="this:queue">
+					@RoomState(snapshot, "")
+				</div>
+				<footer class="room-footer">
+					<p>Leaving abandons this player and removes it from the room.</p>
+					<form method="post" action={ "/rooms/" + snapshot.Code + "/leave" }>
+						<button type="submit" class="button-danger">Leave game</button>
+					</form>
+				</footer>
+			</main>
+		</body>
+	</html>
+}
+
+templ RoomState(snapshot match.Snapshot, message string) {
+	<section
+		id="room-state"
+		class="room-state"
+		data-room-code={ snapshot.Code }
+		data-revision={ strconv.FormatUint(snapshot.Revision, 10) }
+		data-status={ string(snapshot.Status) }
+		hx-get={ "/rooms/" + snapshot.Code + "/state" }
+		hx-trigger="every 1.5s"
+		hx-target="this"
+		hx-swap="outerHTML"
+		hx-sync="#room-sync:queue"
+		aria-live="polite"
+	>
+		<header class="state-heading">
+			<div>
+				<p class="eyebrow">Game status</p>
+				<h2>{ roomStatusLabel(snapshot.Status) }</h2>
+			</div>
+			<p class="player-count">{ strconv.Itoa(len(snapshot.Players)) } / 8 players</p>
+		</header>
+		if message != "" {
+			<p class="notice error-notice" role="alert">{ message }</p>
+		}
+		<div class="room-layout">
+			<section class="map-panel" aria-labelledby="map-heading">
+				<h3 id="map-heading">Shared map</h3>
+				@MapWithPlayers(snapshot.World, snapshot.Viewer.Player, mapPlayers(snapshot))
+			</section>
+			<aside class="players-panel" aria-labelledby="players-heading">
+				<h3 id="players-heading">Players</h3>
+				<ul class="player-list">
+					for _, participant := range snapshot.Players {
+						<li
+							class="player-row"
+							data-player-id={ participant.ID }
+							data-x={ strconv.Itoa(participant.Player.Position.X) }
+							data-y={ strconv.Itoa(participant.Player.Position.Y) }
+							data-health={ strconv.Itoa(participant.Player.Health) }
+						>
+							<span class="player-name">
+								{ participant.Username }
+								if participant.ID == snapshot.HostPlayerID {
+									<span class="host-badge">Host</span>
+								}
+								if participant.ID == snapshot.Viewer.ID {
+									<span class="you-badge">You</span>
+								}
+							</span>
+							<span class="player-stats">Position { participant.Player.Position.X }, { participant.Player.Position.Y } · Health { participant.Player.Health }</span>
+						</li>
+					}
+				</ul>
+			</aside>
+		</div>
+		<section class="controls-panel" aria-labelledby="controls-heading">
+			<h3 id="controls-heading">Game controls</h3>
+			if snapshot.Status == match.Lobby {
+				if snapshot.Viewer.ID == snapshot.HostPlayerID {
+					<form method="post" action={ "/rooms/" + snapshot.Code + "/start" } hx-post={ "/rooms/" + snapshot.Code + "/start" } hx-target="#room-state" hx-swap="outerHTML" hx-sync="#room-sync:queue" hx-disabled-elt="find button">
+						<button type="submit">Start game</button>
+					</form>
+				} else {
+					<p class="muted-copy">Waiting for the host to start the game.</p>
+				}
+			} else if snapshot.Status == match.Active {
+				<div class="active-controls">
+					<div class="direction-pad" aria-label="Movement controls">
+						@MovementForm(snapshot, "north", "North", snapshot.Moves.North.Possible)
+						<div class="horizontal-moves">
+							@MovementForm(snapshot, "west", "West", snapshot.Moves.West.Possible)
+							@MovementForm(snapshot, "south", "South", snapshot.Moves.South.Possible)
+							@MovementForm(snapshot, "east", "East", snapshot.Moves.East.Possible)
+						</div>
+					</div>
+					if snapshot.Viewer.ID == snapshot.HostPlayerID {
+						<form method="post" action={ "/rooms/" + snapshot.Code + "/finish" } hx-post={ "/rooms/" + snapshot.Code + "/finish" } hx-target="#room-state" hx-swap="outerHTML" hx-sync="#room-sync:queue" hx-disabled-elt="find button">
+							<button type="submit" class="button-danger">Finish game</button>
+						</form>
+					}
+				</div>
+			} else {
+				<p class="muted-copy">This game is finished. Players can reconnect to view the final positions and stats.</p>
+			}
+		</section>
+	</section>
+}
+
+templ MovementForm(snapshot match.Snapshot, direction, label string, possible bool) {
+	<form method="post" action={ "/rooms/" + snapshot.Code + "/actions" } hx-post={ "/rooms/" + snapshot.Code + "/actions" } hx-target="#room-state" hx-swap="outerHTML" hx-sync="#room-sync:queue" hx-disabled-elt="find button">
+		<input type="hidden" name="direction" value={ direction }/>
+		if possible && snapshot.Status == match.Active {
+			<button type="submit" aria-label={ "Move " + direction }>{ label }</button>
+		} else {
+			<button type="submit" aria-label={ "Move " + direction } disabled>{ label }</button>
+		}
+	</form>
+}
+
+func roomStatusLabel(status match.Status) string {
+	switch status {
+	case match.Lobby:
+		return "Lobby"
+	case match.Active:
+		return "In progress"
+	case match.Finished:
+		return "Finished"
+	case match.Closed:
+		return "Closed"
+	default:
+		return string(status)
+	}
+}
+
+func mapPlayers(snapshot match.Snapshot) []MapPlayer {
+	players := make([]MapPlayer, 0, len(snapshot.Players))
+	for _, participant := range snapshot.Players {
+		players = append(players, MapPlayer{
+			ID:       participant.ID,
+			Username: participant.Username,
+			Position: participant.Player.Position,
+			IsViewer: participant.ID == snapshot.Viewer.ID,
+		})
+	}
+	return players
+}

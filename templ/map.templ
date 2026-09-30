@@ -2,8 +2,16 @@ package templ
 
 import (
 	"fmt"
+	"strconv"
 	"seesharpsi/web_roguelike/game"
 )
+
+type MapPlayer struct {
+	ID       string
+	Username string
+	Position game.Pos
+	IsViewer bool
+}
 
 // wallColor is a helper function to map wall types to CSS colors.
 func wallColor(wallType string) string {
@@ -24,6 +32,10 @@ func wallColor(wallType string) string {
 }
 
 templ Map(m game.Map, p game.Player) {
+	@MapWithPlayers(m, p, nil)
+}
+
+templ MapWithPlayers(m game.Map, p game.Player, players []MapPlayer) {
 	<style>
 		.map-grid {
 			display: grid;
@@ -63,7 +75,7 @@ templ Map(m game.Map, p game.Player) {
 					// If a room exists, create a div for it.
 					// We use an inline style to set the specific border colors for each of the four walls.
 					<div
-						class="room-cell"
+						class={ roomCellClass(p, current_pos) }
 						style={
 							"border-top-color: " + wallColor(room.NWall.Type) + ";" +
 							"border-right-color: " + wallColor(room.EWall.Type) + ";" +
@@ -71,15 +83,34 @@ templ Map(m game.Map, p game.Player) {
 							"border-left-color: " + wallColor(room.WWall.Type) + ";"
 						}
 					>
-						// You could add content inside the room here, like the coordinates.
-						// { strconv.Itoa(x) },{ strconv.Itoa(y) }
+						for index, player := range players {
+							if player.Position == current_pos {
+								<span class={ mapMarkerClass(player) } style={ fmt.Sprintf("top: %dpx; left: %dpx;", 6+index*6, 6+index*5) } data-player-id={ player.ID } aria-label={ player.Username + " at " + strconv.Itoa(x) + "," + strconv.Itoa(y) } title={ player.Username }>
+									<span class="map-marker-dot" aria-hidden="true"></span>
+									<span class="map-marker-name">{ player.Username }</span>
+								</span>
+							}
+						}
 					</div>
 				} else {
 					// If no room exists, create an empty, grayed-out cell as a placeholder.
-					<div class="empty-cell"></div>
+					<div class="empty-cell" data-x={ strconv.Itoa(x) } data-y={ strconv.Itoa(y) }></div>
 				}
 			}
 		}
 	</div>
 }
 
+func roomCellClass(p game.Player, position game.Pos) string {
+	if p.Position == position && p.Alive {
+		return "room-cell viewer-position"
+	}
+	return "room-cell"
+}
+
+func mapMarkerClass(player MapPlayer) string {
+	if player.IsViewer {
+		return "map-marker viewer-marker"
+	}
+	return "map-marker"
+}

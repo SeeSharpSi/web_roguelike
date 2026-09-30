@@ -3,18 +3,16 @@ package session
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"io"
 	"net/http"
-	"seesharpsi/web_roguelike/game"
 	"sync"
 	"time"
 )
 
-// Session holds the state for a single user's game.
+// Session identifies a browser session without storing gameplay state.
 type Session struct {
 	ID           string
 	LastAccessed time.Time
-	Player       game.Player
-	Map          game.Map
 }
 
 // Manager handles the creation, storage, and retrieval of sessions.
@@ -31,30 +29,34 @@ func NewManager() *Manager {
 }
 
 // CreateSession creates a new session and returns its ID.
-func (m *Manager) CreateSession() string {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	// Generate a random, secure session ID.
-	b := make([]byte, 16)
-	rand.Read(b)
-	id := hex.EncodeToString(b)
-
-	new_player := game.Player{}
-	new_player.Generate_player()
-	new_map := game.Map{}
-	new_map.Generate_map()
-	new_player.Position = new_map.StartPos
-
-	m.sessions[id] = &Session{
-		ID: id,
-		//GameState:    &story.GameState{},
-		//StoryHistory: []story.StoryPage{},
-		LastAccessed: time.Now(),
-		Player:       new_player,
-		Map:          new_map,
+func (m *Manager) CreateSession() (string, error) {
+	session, err := m.createSession()
+	if err != nil {
+		return "", err
 	}
-	return id
+	return session.ID, nil
+}
+
+func (m *Manager) createSession() (*Session, error) {
+	for {
+		idBytes := make([]byte, 16)
+		if _, err := io.ReadFull(rand.Reader, idBytes); err != nil {
+			return nil, err
+		}
+		id := hex.EncodeToString(idBytes)
+		now := time.Now()
+
+		m.mutex.Lock()
+		if _, exists := m.sessions[id]; exists {
+			m.mutex.Unlock()
+			continue
+		}
+		stored := &Session{ID: id, LastAccessed: now}
+		m.sessions[id] = stored
+		copy := *stored
+		m.mutex.Unlock()
+		return &copy, nil
+	}
 }
 
 // GetSession retrieves a session by its ID.
@@ -66,27 +68,50 @@ func (m *Manager) GetSession(id string) *Session {
 		return nil
 	}
 	session.LastAccessed = time.Now()
-	return session
+	copy := *session
+	return &copy
 }
 
 // GetOrCreateSession retrieves an existing session or creates a new one.
-func (m *Manager) GetOrCreateSession(r *http.Request) (*Session, http.Cookie) {
-	cookie, err := r.Cookie("session_id")
-	if err == nil {
-		session := m.GetSession(cookie.Value)
-		if session != nil {
-			return session, *cookie
+func (m *Manager) GetOrCreateSession(r *http.Request) (*Session, http.Cookie, error) {
+	secure := r != nil && r.TLS != nil
+	if r != nil {
+		cookie, err := r.Cookie("session_id")
+		if err == nil {
+			session := m.GetSession(cookie.Value)
+			if session != nil {
+				return session, sessionCookie(session.ID, time.Now(), secure), nil
+			}
 		}
 	}
 
-	// If no valid session is found, create a new one.
-	id := m.CreateSession()
-	newCookie := http.Cookie{
+	session, err := m.createSession()
+	if err != nil {
+		return nil, http.Cookie{}, err
+	}
+	return session, sessionCookie(session.ID, time.Now(), secure), nil
+}
+
+func sessionCookie(id string, now time.Time, secure bool) http.Cookie {
+	return http.Cookie{
 		Name:     "session_id",
 		Value:    id,
-		Expires:  time.Now().Add(24 * time.Hour),
-		HttpOnly: true,
 		Path:     "/",
+		Expires:  now.Add(24 * time.Hour),
+		MaxAge:   24 * 60 * 60,
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
 	}
-	return m.GetSession(id), newCookie
+}
+
+// Cleanup removes sessions that have been idle for at least maxIdle.
+func (m *Manager) Cleanup(now time.Time, maxIdle time.Duration) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	for id, session := range m.sessions {
+		if now.Sub(session.LastAccessed) >= maxIdle {
+			delete(m.sessions, id)
+		}
+	}
 }
