@@ -95,12 +95,6 @@ async (page) => {
     );
   }
 
-  function assertRect(rect, expected, step, label) {
-    for (const [key, value] of Object.entries(expected)) {
-      assertNear(rect[key], value, step, `${label}.${key}`);
-    }
-  }
-
   async function visibleRoster(targetPage) {
     return targetPage.locator("#room-state").evaluate((state) =>
       Array.from(state.querySelectorAll("[data-player-id][data-x][data-y][data-health]"), (row) => ({
@@ -120,21 +114,308 @@ async (page) => {
         const box = node.getBoundingClientRect();
         return { x: box.x, y: box.y, width: box.width, height: box.height };
       };
+      const cell = document.querySelector(".room-cell, .empty-cell");
+      const chartViewport = document.querySelector(".chart-viewport");
+      const grid = document.querySelector(".map-grid");
+      const style = (selector) => {
+        const node = document.querySelector(selector);
+        return node ? getComputedStyle(node) : null;
+      };
+      const cellRect = cell?.getBoundingClientRect();
+      const viewportStyle = chartViewport ? getComputedStyle(chartViewport) : null;
+      const stateStyle = style("#room-state");
+      const bodyStyle = getComputedStyle(document.body);
       return {
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        document: {
+          width: document.documentElement.scrollWidth,
+          height: document.documentElement.scrollHeight,
+          zoom: getComputedStyle(document.documentElement).zoom,
+          bodyTransform: bodyStyle.transform,
+          roomStateTransform: stateStyle?.transform || "none",
+        },
         missionHeader: rect(".mission-header"),
+        tacticalWorkspace: rect(".tactical-workspace"),
         mapModule: rect(".map-module"),
+        intelSidebar: rect(".intel-sidebar"),
+        chartViewport: rect(".chart-viewport"),
+        sectorChart: rect(".sector-chart"),
+        mapChartMatrix: rect(".map-chart-matrix"),
         mapGrid: rect(".map-grid"),
+        roomReadout: rect(".room-readout"),
         directiveCard: rect(".directive-card"),
         crewPanel: rect(".crew-panel"),
         vitalsPanel: rect(".vitals-panel"),
+        dockOuter: rect(".dock-outer"),
         dockPanel: rect(".dock-panel"),
+        moveButton: rect(".direction-pad button"),
+        quickSlot: rect(".quickbelt-slots .quick-slot"),
+        type: {
+          mapHeading: parseFloat(style("#map-heading")?.fontSize || "0"),
+          roomDescription: parseFloat(style(".room-description")?.fontSize || "0"),
+          moveButton: parseFloat(style(".direction-pad button")?.fontSize || "0"),
+        },
+        chartViewportOverflowX: viewportStyle?.overflowX || "visible",
+        chartViewportScrollWidth: chartViewport?.scrollWidth || 0,
+        chartViewportClientWidth: chartViewport?.clientWidth || 0,
+        chartViewportContainsGrid: Boolean(chartViewport && grid && chartViewport.contains(grid)),
         mapDimensions: {
           width: Number(document.querySelector(".sector-chart")?.dataset.mapWidth),
           length: Number(document.querySelector(".sector-chart")?.dataset.mapLength),
-          cellSize: parseFloat(getComputedStyle(document.querySelector(".room-cell, .empty-cell")).width),
+          cellSize: cell ? parseFloat(getComputedStyle(cell).width) : 0,
+          cellHeight: cellRect?.height || 0,
+          quickSlotHeight: rect(".quickbelt-slots .quick-slot")?.height || 0,
         },
       };
     });
+  }
+
+  function assertContained(inner, outer, step, label, tolerance = 1) {
+    assert(
+      inner &&
+        outer &&
+        inner.x >= outer.x - tolerance &&
+        inner.y >= outer.y - tolerance &&
+        inner.x + inner.width <= outer.x + outer.width + tolerance &&
+        inner.y + inner.height <= outer.y + outer.height + tolerance,
+      step,
+      `${label} is not contained: inner=${JSON.stringify(inner)}, outer=${JSON.stringify(outer)}`,
+    );
+  }
+
+  function assertNoOverlap(first, second, step, label) {
+    assert(
+      first &&
+        second &&
+        (first.x + first.width <= second.x + 1 ||
+          second.x + second.width <= first.x + 1 ||
+          first.y + first.height <= second.y + 1 ||
+          second.y + second.height <= first.y + 1),
+      step,
+      `${label} overlap: first=${JSON.stringify(first)}, second=${JSON.stringify(second)}`,
+    );
+  }
+
+  async function waitForLayoutFrame() {
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
+  }
+
+  async function checkLargeViewport(width, height, baseline) {
+    await page.setViewportSize({ width, height });
+    await waitForLayoutFrame();
+    const geometry = await measureDesktopGeometry();
+    const step = `${width}×${height} desktop layout`;
+    const dockBottom = geometry.dockPanel.y + geometry.dockPanel.height;
+    const dockBottomGap = height - dockBottom;
+    const moduleBottom = geometry.mapModule.y + geometry.mapModule.height;
+    const sidebarBottom = geometry.intelSidebar.y + geometry.intelSidebar.height;
+
+    assert(geometry.document.width <= width + 1, step, `document width ${geometry.document.width} exceeds viewport`);
+    if (height >= 900) {
+      assert(geometry.document.height <= height + 2, step, `document height ${geometry.document.height} exceeds viewport`);
+    }
+    assertNear(geometry.missionHeader.y, 0, step, "header top", 1);
+    assertNear(geometry.mapModule.y, geometry.intelSidebar.y, step, "module/sidebar top alignment", 1);
+    assertNear(moduleBottom, sidebarBottom, step, "module/sidebar bottom alignment", 1);
+    assertNear(geometry.dockPanel.x, geometry.mapModule.x, step, "dock/workspace left alignment", 1);
+    assertNear(
+      geometry.dockPanel.x + geometry.dockPanel.width,
+      geometry.intelSidebar.x + geometry.intelSidebar.width,
+      step,
+      "dock/workspace right alignment",
+      1,
+    );
+    assert(
+      dockBottomGap > 0 && dockBottomGap <= 64,
+      step,
+      `dock bottom gap must stay positive and within 64px, got ${dockBottomGap}px`,
+    );
+    assert(moduleBottom < geometry.dockPanel.y, step, "workspace panels overlap dock");
+    assert(
+      geometry.chartViewportContainsGrid,
+      step,
+      "map grid is not contained by chart viewport DOM",
+    );
+    assertContained(geometry.sectorChart, geometry.chartViewport, step, "sector chart/chart viewport");
+    assertContained(geometry.mapChartMatrix, geometry.sectorChart, step, "map matrix/sector chart");
+    assertContained(geometry.mapGrid, geometry.chartViewport, step, "map grid/chart viewport");
+    assertContained(geometry.roomReadout, geometry.mapModule, step, "room readout/map module");
+    assertContained(geometry.moveButton, geometry.roomReadout, step, "movement control/readout");
+    assertContained(geometry.quickSlot, geometry.dockPanel, step, "quick slot/dock panel");
+    assertNoOverlap(geometry.mapGrid, geometry.roomReadout, step, "map grid and readout");
+    assertNear(
+      geometry.mapGrid.width,
+      geometry.mapDimensions.width * geometry.mapDimensions.cellSize,
+      step,
+      "grid width from map width × cell size",
+      1,
+    );
+    assertNear(
+      geometry.mapGrid.height,
+      geometry.mapDimensions.length * geometry.mapDimensions.cellSize,
+      step,
+      "grid height from map length × cell size",
+      1,
+    );
+    assert(
+      Number.isInteger(geometry.mapDimensions.width) &&
+        geometry.mapDimensions.width > 0 &&
+        Number.isInteger(geometry.mapDimensions.length) &&
+        geometry.mapDimensions.length > 0 &&
+        geometry.mapDimensions.cellSize > 0,
+      step,
+      `invalid map chart dimensions: ${JSON.stringify(geometry.mapDimensions)}`,
+    );
+    assertNear(geometry.mapDimensions.cellSize, geometry.mapDimensions.cellHeight, step, "map cells remain square", 1);
+    assert(
+      (geometry.document.zoom === "1" || geometry.document.zoom === "normal") &&
+        geometry.document.bodyTransform === "none" &&
+        geometry.document.roomStateTransform === "none",
+      step,
+      `page scaling must come from responsive UI sizing: ${JSON.stringify(geometry.document)}`,
+    );
+    if (width === 1440 && height === 900) {
+      assertNear(geometry.missionHeader.height, 68, step, "baseline header height", 3);
+      assertNear(geometry.moveButton.width, 34, step, "baseline movement-control width");
+      assertNear(geometry.moveButton.height, 34, step, "baseline movement-control height");
+      assertNear(geometry.mapDimensions.quickSlotHeight, 84, step, "baseline quick-slot height");
+    }
+
+    if (width >= 1920) {
+      assert(
+        geometry.mapDimensions.cellSize > baseline.mapDimensions.cellSize * 1.08,
+        step,
+        `map cells did not grow beyond baseline: ${geometry.mapDimensions.cellSize}px vs ${baseline.mapDimensions.cellSize}px`,
+      );
+      assert(
+        geometry.type.mapHeading > baseline.type.mapHeading * 1.08 &&
+          geometry.moveButton.width > baseline.moveButton.width * 1.08,
+        step,
+        `headings or movement controls did not grow beyond baseline: ${JSON.stringify({
+          heading: geometry.type.mapHeading,
+          baselineHeading: baseline.type.mapHeading,
+          moveButton: geometry.moveButton.width,
+          baselineMoveButton: baseline.moveButton.width,
+        })}`,
+      );
+    }
+    if (width === 1920 && height === 1080) {
+      assert(
+        geometry.mapDimensions.cellSize >= baseline.mapDimensions.cellSize * 1.1,
+        step,
+        `map cells should scale with 1920×1080 viewport: ${geometry.mapDimensions.cellSize}px vs ${baseline.mapDimensions.cellSize}px`,
+      );
+    }
+    if (width === 2560 && height === 1440) {
+      assert(
+        geometry.mapDimensions.cellSize > baseline.mapDimensions.cellSize * 1.3 &&
+          geometry.type.mapHeading > baseline.type.mapHeading * 1.4 &&
+          geometry.moveButton.width > baseline.moveButton.width * 1.4 &&
+          geometry.mapDimensions.quickSlotHeight > baseline.mapDimensions.quickSlotHeight * 1.1,
+        step,
+        `large-screen chart, headings, controls, and slots did not scale: ${JSON.stringify({
+          cellSize: geometry.mapDimensions.cellSize,
+          headingSize: geometry.type.mapHeading,
+          moveButton: geometry.moveButton.width,
+          slotHeight: geometry.mapDimensions.quickSlotHeight,
+        })}`,
+      );
+
+      await page.evaluate(() => {
+        window.__paperUITestAfterSwapCount = 0;
+      });
+      const beforePolls = await measureDesktopGeometry();
+      const beforePollState = await page.evaluate(() => ({
+        scrollX: window.scrollX,
+        scrollY: window.scrollY,
+        rosterScrollTop: document.querySelector(".player-list")?.scrollTop || 0,
+        selectedSlot: document.querySelector(".quick-slot[aria-pressed='true']")?.dataset.quickSlot || "",
+        currentRoom: document.querySelector("#room-state")?.dataset.currentRoom || "",
+        detailName: document.querySelector("[data-detail-name]")?.textContent?.trim() || "",
+      }));
+      await page.waitForFunction(() => window.__paperUITestAfterSwapCount >= 2, null, { timeout });
+      await waitForLayoutFrame();
+      const afterPolls = await measureDesktopGeometry();
+      const afterPollState = await page.evaluate(() => ({
+        scrollX: window.scrollX,
+        scrollY: window.scrollY,
+        rosterScrollTop: document.querySelector(".player-list")?.scrollTop || 0,
+        selectedSlot: document.querySelector(".quick-slot[aria-pressed='true']")?.dataset.quickSlot || "",
+        currentRoom: document.querySelector("#room-state")?.dataset.currentRoom || "",
+        detailName: document.querySelector("[data-detail-name]")?.textContent?.trim() || "",
+      }));
+      const stableBoxes = [
+        "missionHeader",
+        "mapModule",
+        "intelSidebar",
+        "chartViewport",
+        "mapGrid",
+        "roomReadout",
+        "dockPanel",
+        "moveButton",
+        "quickSlot",
+      ];
+      for (const name of stableBoxes) {
+        for (const dimension of ["x", "y", "width", "height"]) {
+          assertNear(
+            afterPolls[name][dimension],
+            beforePolls[name][dimension],
+            `${width}×${height} polling stability`,
+            `${name}.${dimension}`,
+            1,
+          );
+        }
+      }
+      assertNear(afterPolls.type.mapHeading, beforePolls.type.mapHeading, step, "heading font after two polls", 1);
+      assertNear(afterPolls.type.roomDescription, beforePolls.type.roomDescription, step, "readout font after two polls", 1);
+      assertNear(afterPolls.type.moveButton, beforePolls.type.moveButton, step, "movement-control font after two polls", 1);
+      assertNear(afterPolls.mapDimensions.cellSize, beforePolls.mapDimensions.cellSize, step, "map cell after two polls", 1);
+      assertNear(
+        afterPolls.mapDimensions.quickSlotHeight,
+        beforePolls.mapDimensions.quickSlotHeight,
+        step,
+        "quick-slot height after two polls",
+        1,
+      );
+      assert(
+        afterPolls.mapDimensions.width === beforePolls.mapDimensions.width &&
+          afterPolls.mapDimensions.length === beforePolls.mapDimensions.length &&
+          afterPolls.document.width === beforePolls.document.width &&
+          afterPolls.document.height === beforePolls.document.height &&
+          afterPollState.selectedSlot === beforePollState.selectedSlot &&
+          afterPollState.currentRoom === beforePollState.currentRoom &&
+          afterPollState.detailName === beforePollState.detailName &&
+          Math.abs(afterPollState.rosterScrollTop - beforePollState.rosterScrollTop) <= 1 &&
+          afterPollState.scrollX === beforePollState.scrollX &&
+          afterPollState.scrollY === beforePollState.scrollY,
+        step,
+        `poll swaps changed chart/layout or reset UI state: before=${JSON.stringify({ geometry: beforePolls, state: beforePollState })}, after=${JSON.stringify({ geometry: afterPolls, state: afterPollState })}`,
+      );
+      geometry.pollStability = {
+        afterSwaps: await page.evaluate(() => window.__paperUITestAfterSwapCount),
+        stable: true,
+      };
+    }
+
+    return {
+      viewport: { width, height },
+      document: geometry.document,
+      header: geometry.missionHeader,
+      workspace: geometry.tacticalWorkspace,
+      mapModule: geometry.mapModule,
+      sidebar: geometry.intelSidebar,
+      chartViewport: geometry.chartViewport,
+      mapGrid: geometry.mapGrid,
+      readout: geometry.roomReadout,
+      dock: geometry.dockPanel,
+      dockBottomGap,
+      cellSize: geometry.mapDimensions.cellSize,
+      headingFontSize: geometry.type.mapHeading,
+      readoutFontSize: geometry.type.roomDescription,
+      movementButtonSize: { width: geometry.moveButton.width, height: geometry.moveButton.height },
+      quickSlotHeight: geometry.mapDimensions.quickSlotHeight,
+      pollStability: geometry.pollStability || null,
+    };
   }
 
   async function checkWallPaletteAndRendering() {
@@ -206,9 +487,30 @@ async (page) => {
 
   async function checkResponsiveViewport(width, height) {
     await page.setViewportSize({ width, height });
+    await waitForLayoutFrame();
     const horizontal = await page.evaluate(() => ({
       innerWidth: window.innerWidth,
       documentWidth: document.documentElement.scrollWidth,
+      chart: (() => {
+        const viewport = document.querySelector(".chart-viewport");
+        const chart = document.querySelector(".sector-chart");
+        const grid = document.querySelector(".map-grid");
+        const viewportRect = viewport?.getBoundingClientRect();
+        const chartRect = chart?.getBoundingClientRect();
+        const gridRect = grid?.getBoundingClientRect();
+        return {
+          containsGrid: Boolean(viewport && grid && viewport.contains(grid)),
+          viewport: viewportRect && { left: viewportRect.left, right: viewportRect.right },
+          sectorChart: chartRect && { left: chartRect.left, right: chartRect.right },
+          grid: gridRect && { left: gridRect.left, right: gridRect.right },
+          overflowX: viewport ? getComputedStyle(viewport).overflowX : "visible",
+          scrollWidth: viewport?.scrollWidth || 0,
+          clientWidth: viewport?.clientWidth || 0,
+          sectorOverflowX: chart ? getComputedStyle(chart).overflowX : "visible",
+          sectorScrollWidth: chart?.scrollWidth || 0,
+          sectorClientWidth: chart?.clientWidth || 0,
+        };
+      })(),
       controls: Array.from(document.querySelectorAll("button"))
         .filter((node) => {
           const style = getComputedStyle(node);
@@ -233,6 +535,25 @@ async (page) => {
       `${width}px responsive controls`,
       `buttons outside horizontal viewport: ${JSON.stringify(outside)}`,
     );
+    assert(horizontal.chart.containsGrid, `${width}px responsive chart`, "map grid is not inside its chart viewport");
+    assert(
+      horizontal.chart.viewport.left >= -1 && horizontal.chart.viewport.right <= width + 1,
+      `${width}px responsive chart`,
+      `chart viewport exceeds page width: ${JSON.stringify(horizontal.chart)}`,
+    );
+    if (
+      horizontal.chart.grid.left < horizontal.chart.viewport.left - 1 ||
+      horizontal.chart.grid.right > horizontal.chart.viewport.right + 1
+    ) {
+      assert(
+        (horizontal.chart.scrollWidth > horizontal.chart.clientWidth &&
+          ["auto", "scroll"].includes(horizontal.chart.overflowX)) ||
+          (horizontal.chart.sectorScrollWidth > horizontal.chart.sectorClientWidth &&
+            ["auto", "scroll"].includes(horizontal.chart.sectorOverflowX)),
+        `${width}px responsive chart scrolling`,
+        `map grid outside chart viewport has no internal horizontal scroll: ${JSON.stringify(horizontal.chart)}`,
+      );
+    }
 
     const panels = {};
     for (const [name, selector, topSelector, bottomSelector] of [
@@ -280,6 +601,39 @@ async (page) => {
     return { viewport: { width, height }, documentWidth: horizontal.documentWidth, buttonCount: horizontal.controls.length, panels };
   }
 
+  async function checkShortDesktopViewport() {
+    const width = 1440;
+    const height = 720;
+    await page.setViewportSize({ width, height });
+    await waitForLayoutFrame();
+    const geometry = await measureDesktopGeometry();
+    assert(
+      geometry.document.width <= width + 1,
+      "1440×720 short desktop width",
+      `document width ${geometry.document.width} exceeds viewport`,
+    );
+    for (const [selector, label] of [
+      [".direction-pad button", "movement control"],
+      [".quickbelt-slots .quick-slot", "quick slot"],
+    ]) {
+      const target = page.locator(selector).first();
+      await target.scrollIntoViewIfNeeded({ timeout });
+      const box = await target.boundingBox();
+      assert(
+        box && box.x >= -1 && box.x + box.width <= width + 1 && box.y >= -1 && box.y + box.height <= height + 1,
+        "1440×720 short desktop reachability",
+        `${label} not reachable after vertical scrolling: ${JSON.stringify(box)}`,
+      );
+    }
+    return {
+      viewport: { width, height },
+      document: geometry.document,
+      dock: geometry.dockPanel,
+      movementReachable: true,
+      quickSlotReachable: true,
+    };
+  }
+
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
 
@@ -320,59 +674,8 @@ async (page) => {
     mark("Three independent guests joined; host row, P2 avatar, and username rendered after polling");
 
     const geometries = await measureDesktopGeometry();
-    assertRect(geometries.missionHeader, { height: 68 }, "Desktop Paper geometry", "missionHeader");
-    assertRect(
-      geometries.mapModule,
-      { x: 44, y: 86, width: 938, height: 636 },
-      "Desktop Paper geometry",
-      "mapModule",
-    );
-    assertRect(
-      geometries.mapGrid,
-      { x: 88, y: 187 },
-      "Desktop Paper geometry",
-      "mapGrid",
-    );
-    assertRect(geometries.directiveCard, { height: 164 }, "Desktop Paper geometry", "directiveCard");
-    assertRect(
-      geometries.crewPanel,
-      { y: 276, height: 270 },
-      "Desktop Paper geometry",
-      "crewPanel",
-    );
-    assertRect(
-      geometries.vitalsPanel,
-      { y: 572, height: 150 },
-      "Desktop Paper geometry",
-      "vitalsPanel",
-    );
-    assertRect(
-      geometries.dockPanel,
-      { x: 44, y: 736, width: 1364, height: 144 },
-      "Desktop Paper geometry",
-      "dockPanel",
-    );
-    assert(
-      Number.isInteger(geometries.mapDimensions.width) &&
-        geometries.mapDimensions.width > 0 &&
-        Number.isInteger(geometries.mapDimensions.length) &&
-        geometries.mapDimensions.length > 0,
-      "Map chart dimensions",
-      `map dimensions must be positive integers, got ${geometries.mapDimensions.width}×${geometries.mapDimensions.length}`,
-    );
-    assertNear(geometries.mapDimensions.cellSize, 38, "Map chart dimensions", "cellSize");
-    assertNear(
-      geometries.mapGrid.width,
-      geometries.mapDimensions.width * geometries.mapDimensions.cellSize,
-      "Map chart dimensions",
-      "grid width from data-map-width × cell size",
-    );
-    assertNear(
-      geometries.mapGrid.height,
-      geometries.mapDimensions.length * geometries.mapDimensions.cellSize,
-      "Map chart dimensions",
-      "grid height from data-map-length × cell size",
-    );
+    const desktopBaseline = await checkLargeViewport(1440, 900, geometries);
+    mark("Baseline desktop layout fills viewport; map/sidebar align, square chart fits viewport, and dock stays bottom-anchored");
     const alignment = await page.locator("#room-state .player-row").evaluateAll((rows) =>
       rows.map((row) => {
         const rect = (selector) => {
@@ -396,7 +699,7 @@ async (page) => {
         `${column} x positions differ: ${JSON.stringify(alignment)}`,
       );
     }
-    mark("Desktop geometry matches Paper measurements; dynamic chart dimensions and crew columns align");
+    mark("Desktop structure stays aligned; chart scales to map dimensions and crew columns align");
 
     const palette = await checkWallPaletteAndRendering();
     assert(palette.bodyColor === "rgb(0, 0, 0)", "Map palette", `body background is ${palette.bodyColor}`);
@@ -537,6 +840,29 @@ async (page) => {
     );
     mark("Eight-player roster scroll stayed at bottom across two polls; P7/P8 rows remain reachable");
 
+    const largeViewports = [desktopBaseline];
+    for (const [width, height] of [
+      [1920, 1080],
+      [2560, 1440],
+      [3440, 1440],
+      [1920, 1800],
+      [1440, 1200],
+    ]) {
+      largeViewports.push(await checkLargeViewport(width, height, geometries));
+    }
+    const tallViewport = largeViewports.find((entry) => entry.viewport.width === 1440 && entry.viewport.height === 1200);
+    assert(
+      tallViewport.dockBottomGap >= 10 && tallViewport.dockBottomGap <= 32,
+      "1440×1200 dock anchoring",
+      `dock should remain near viewport bottom padding, gap=${tallViewport.dockBottomGap}px`,
+    );
+    assert(
+      tallViewport.workspace.height > geometries.tacticalWorkspace.height + 200,
+      "1440×1200 workspace fill",
+      `workspace did not expand with viewport height: baseline=${geometries.tacticalWorkspace.height}px, tall=${tallViewport.workspace.height}px`,
+    );
+    mark("1920×1080, 2560×1440, ultrawide, and tall layouts fill viewport and scale chart/HUD; 2560 polling swaps do not shift layout");
+
     // Start via host UI, verify all peers observe active status, then move through a legal direction if one exists.
     await page.getByRole("button", { name: "Start game", exact: true }).click();
     await waitForRoom(page, { code: roomCode, status: "active", playerCount: 8 }, "Start game");
@@ -667,9 +993,11 @@ async (page) => {
     responsive.push(await checkResponsiveViewport(375, 812));
     responsive.push(await checkResponsiveViewport(1024, 768));
     responsive.push(await checkResponsiveViewport(1280, 900));
+    const shortDesktop = await checkShortDesktopViewport();
     await page.setViewportSize({ width: 1440, height: 900 });
+    await waitForLayoutFrame();
     await page.evaluate(() => window.scrollTo(0, 0));
-    mark("375px, 1024px, and 1280px layouts stay within viewport; roster, readout, dock, and controls remain reachable");
+    mark("375px, 1024px, 1280px, and short desktop layouts stay horizontally contained; panels and controls remain reachable");
 
     return {
       checks,
@@ -679,6 +1007,9 @@ async (page) => {
       movement,
       crewScroll: { start: crewScrollStart, ...crewScroll },
       geometries,
+      desktopBaseline,
+      largeViewports,
+      shortDesktop,
       wallPalette: {
         bodyColor: palette.bodyColor,
         floorColor: palette.floorColor,

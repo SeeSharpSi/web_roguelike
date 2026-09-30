@@ -33,3 +33,4 @@
 - Map coordinates have `(0,0)` at bottom-left; `templ/map.templ` renders Y in descending order.
 - The tactical chart labels columns alphabetically and screen rows from top to bottom. A displayed row number is `Map.Length - Position.Y`.
 - The frontend follows the read-only `web_roguelike` Paper mockup. Keep its visual palette and panel proportions while binding HUD values to real match snapshots.
+- Desktop room layouts fill the viewport, with the object dock below the workspace. Scale the chart and HUD together on larger displays; retain document scrolling on smaller screens.

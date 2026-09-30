@@ -1,7 +1,4 @@
 :root {
-  --map-cell-size: 38px;
-  --map-row-label-width: 21px;
-  --map-axis-gap: 4px;
   --map-uncharted-floor: #0B1519;
   --map-charted-floor: #172A30;
   --map-current-floor: #30352F;
@@ -17,28 +14,47 @@
 }
 
 .sector-chart {
+  --map-cell-size: calc(38 * var(--ui-unit, 1px));
+  --map-row-label-width: calc(21 * var(--ui-unit, 1px));
+  --map-axis-gap: calc(4 * var(--ui-unit, 1px));
   box-sizing: border-box;
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 5px;
-  height: 530px;
+  gap: calc(5 * var(--ui-unit, 1px));
+  height: max-content;
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  padding-right: 7px;
+  padding-right: calc(7 * var(--ui-unit, 1px));
   position: relative;
   scrollbar-width: thin;
   width: max-content;
   -webkit-overflow-scrolling: touch;
 }
 
+@supports (container-type: size) {
+  .chart-viewport {
+    container-type: size;
+  }
+
+  .sector-chart {
+    --map-cell-size: max(
+      calc(24 * var(--ui-unit, 1px)),
+      min(
+        calc((100cqw - calc(32 * var(--ui-unit, 1px))) / var(--map-columns)),
+        calc((100cqh - calc(23 * var(--ui-unit, 1px))) / var(--map-rows))
+      )
+    );
+  }
+}
+
 .map-column-labels {
   align-items: center;
   box-sizing: border-box;
   display: grid;
-  flex: 0 0 18px;
-  height: 18px;
+  flex: 0 0 calc(18 * var(--ui-unit, 1px));
+  height: calc(18 * var(--ui-unit, 1px));
   padding-left: calc(var(--map-row-label-width) + var(--map-axis-gap));
   width: max-content;
 }
@@ -48,9 +64,9 @@
   box-sizing: border-box;
   color: var(--map-label-muted, #758B90);
   flex-shrink: 0;
-  font-size: 9px;
+  font-size: calc(9 * var(--ui-unit, 1px));
   font-weight: 600;
-  line-height: 11px;
+  line-height: calc(11 * var(--ui-unit, 1px));
   text-align: center;
 }
 
@@ -129,50 +145,50 @@
 .empty-cell::after {
   background-color: var(--map-unknown-dot, #24363B);
   content: "";
-  height: 2px;
+  height: calc(2 * var(--ui-unit, 1px));
   left: 50%;
   pointer-events: none;
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 2px;
+  width: calc(2 * var(--ui-unit, 1px));
 }
 
 .map-marker {
-  --shared-marker-offset: min(7px, calc((var(--map-cell-size) - 14px) / 2));
+  --shared-marker-offset: min(calc(7 * var(--ui-unit, 1px)), calc((var(--map-cell-size) - calc(14 * var(--ui-unit, 1px))) / 2));
   align-items: center;
   border-radius: 50%;
   box-sizing: border-box;
   display: flex;
   flex: 0 0 auto;
-  height: 18px;
+  height: calc(18 * var(--ui-unit, 1px));
   justify-content: center;
   left: calc(50% + var(--marker-offset-x, 0px));
   overflow: hidden;
   position: absolute;
   top: calc(50% + var(--marker-offset-y, 0px));
   transform: translate(-50%, -50%);
-  width: 18px;
+  width: calc(18 * var(--ui-unit, 1px));
   z-index: 3;
 }
 
 .map-marker.viewer-marker {
   background-color: var(--map-marker-viewer, #F2B51D);
-  height: 22px;
-  width: 22px;
+  height: calc(22 * var(--ui-unit, 1px));
+  width: calc(22 * var(--ui-unit, 1px));
   z-index: 4;
 }
 
 .map-marker.viewer-marker.shared-viewer-marker {
-  height: 14px;
+  height: calc(14 * var(--ui-unit, 1px));
   left: calc(50% - var(--shared-marker-offset));
   top: calc(50% - var(--shared-marker-offset));
-  width: 14px;
+  width: calc(14 * var(--ui-unit, 1px));
 }
 
 .shared-viewer-marker .map-marker-label {
-  font-size: 6px;
-  line-height: 6px;
+  font-size: calc(6 * var(--ui-unit, 1px));
+  line-height: calc(6 * var(--ui-unit, 1px));
 }
 
 .map-marker.crew-marker {
@@ -184,30 +200,30 @@
 }
 
 .map-marker-group-badge.with-viewer {
-  height: 14px;
+  height: calc(14 * var(--ui-unit, 1px));
   left: calc(50% + var(--shared-marker-offset));
   top: calc(50% + var(--shared-marker-offset));
-  width: 14px;
+  width: calc(14 * var(--ui-unit, 1px));
 }
 
 .map-marker-label {
   color: var(--map-marker-ink, #0D171C);
-  font-size: 8px;
+  font-size: calc(8 * var(--ui-unit, 1px));
   font-weight: 800;
-  line-height: 8px;
+  line-height: calc(8 * var(--ui-unit, 1px));
   pointer-events: none;
   white-space: nowrap;
 }
 
 .map-marker-group-badge .map-marker-label {
-  font-size: 7px;
-  line-height: 7px;
+  font-size: calc(7 * var(--ui-unit, 1px));
+  line-height: calc(7 * var(--ui-unit, 1px));
   letter-spacing: -0.04em;
 }
 
 .map-marker-group-badge.with-viewer .map-marker-label {
-  font-size: 6px;
-  line-height: 6px;
+  font-size: calc(6 * var(--ui-unit, 1px));
+  line-height: calc(6 * var(--ui-unit, 1px));
 }
 
 .map-marker-accessible-player {
@@ -240,6 +256,10 @@
 }
 
 @media (max-width: 767px) {
+  .chart-viewport {
+    container-type: normal;
+  }
+
   .sector-chart {
     --map-cell-size: 24px;
     height: auto;

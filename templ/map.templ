@@ -70,7 +70,7 @@ func mapMarkerAccessibleLabel(player MapPlayer, index int, m game.Map) string {
 }
 
 func mapMarkerStyle(offsetX, offsetY int) string {
-	return fmt.Sprintf("--marker-offset-x: %dpx; --marker-offset-y: %dpx;", offsetX, offsetY)
+	return fmt.Sprintf("--marker-offset-x: calc(%d * var(--ui-unit)); --marker-offset-y: calc(%d * var(--ui-unit));", offsetX, offsetY)
 }
 
 func mapMarkerClass(player MapPlayer) string {
@@ -155,7 +155,7 @@ templ Map(m game.Map, p game.Player) {
 
 templ MapWithPlayers(m game.Map, p game.Player, players []MapPlayer) {
 	{{ showAll := players == nil }}
-	<div class="sector-chart" data-map-width={ strconv.Itoa(m.Width) } data-map-length={ strconv.Itoa(m.Length) }>
+	<div class="sector-chart" style={ fmt.Sprintf("--map-columns: %d; --map-rows: %d;", m.Width, m.Length) } data-map-width={ strconv.Itoa(m.Width) } data-map-length={ strconv.Itoa(m.Length) }>
 		<div class="map-column-labels" aria-hidden="true" style={ fmt.Sprintf("grid-template-columns: repeat(%d, var(--map-cell-size));", m.Width) }>
 			for x := 0; x < m.Width; x++ {
 				<span class="map-column-label">{ mapColumnLabel(x) }</span>
