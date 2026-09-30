@@ -1,6 +1,7 @@
 package templ
 
 import (
+	"fmt"
 	"strconv"
 
 	"seesharpsi/web_roguelike/match"
@@ -9,44 +10,24 @@ import (
 templ RoomPage(snapshot match.Snapshot, message string) {
 	<!DOCTYPE html>
 	<html lang="en">
-		@PageHead("Room " + snapshot.Code + " · Shared Roguelike")
-		<body>
-			<main class="page-shell room-shell">
-				<header class="room-heading">
-					<div>
-						<a class="back-link" href="/">Back to rooms</a>
-						<p class="eyebrow">Shared room</p>
-						<h1>Room <span class="room-code">{ snapshot.Code }</span></h1>
-					</div>
-					<div class="share-card">
-						<span class="muted-label">Invite players</span>
-						<strong>/rooms/{ snapshot.Code }</strong>
-						<span>Share this address with your group.</span>
-					</div>
-				</header>
-				<p class="current-player">Playing as <strong>{ snapshot.Viewer.Username }</strong></p>
-				if message != "" {
-					<p class="notice error-notice" role="alert">{ message }</p>
-				}
-				<div id="room-sync" hx-sync="this:queue">
-					@RoomState(snapshot, "")
-				</div>
-				<footer class="room-footer">
-					<p>Leaving abandons this player and removes it from the room.</p>
-					<form method="post" action={ "/rooms/" + snapshot.Code + "/leave" }>
-						<button type="submit" class="button-danger">Leave game</button>
-					</form>
-				</footer>
+		@PageHead("Room " + snapshot.Code + " · The Hollow Sector")
+		<body class="room-body">
+			<main id="room-sync" class="room-sync" hx-sync="this:queue">
+				@RoomState(snapshot, message)
+				@InspectDialog()
 			</main>
 		</body>
 	</html>
 }
 
 templ RoomState(snapshot match.Snapshot, message string) {
+	{{ charted := len(snapshot.World.Explored) }}
+	{{ items := roomItems(snapshot) }}
 	<section
 		id="room-state"
 		class="room-state"
 		data-room-code={ snapshot.Code }
+		data-current-room={ coordinateLabel(snapshot.Viewer.Player.Position, snapshot.World.Length) }
 		data-revision={ strconv.FormatUint(snapshot.Revision, 10) }
 		data-status={ string(snapshot.Status) }
 		hx-get={ "/rooms/" + snapshot.Code + "/state" }
@@ -56,87 +37,239 @@ templ RoomState(snapshot match.Snapshot, message string) {
 		hx-sync="#room-sync:queue"
 		aria-live="polite"
 	>
-		<header class="state-heading">
-			<div>
-				<p class="eyebrow">Game status</p>
-				<h2>{ roomStatusLabel(snapshot.Status) }</h2>
+		<header class="mission-header">
+			<a class="mission-brand" href="/" aria-label="The Hollow Sector, return to rooms">
+				<span class="brand-emblem" aria-hidden="true"><span>07</span></span>
+				<span class="brand-copy">
+					<span class="entry-kicker">DEEP-SPACE EXPEDITION</span>
+					<span class="brand-wordmark">THE HOLLOW SECTOR</span>
+				</span>
+			</a>
+			<div class="mission-meta">
+				<div class="room-meta-block">
+					<span class="meta-label">ROOM CODE · { snapshot.Code }</span>
+					<span class="room-status-line"><span class={ "status-indicator status-" + string(snapshot.Status) }></span>{ roomStatusLabel(snapshot.Status) } <span class="meta-divider-dot">·</span> { strconv.Itoa(len(snapshot.Players)) } / 8 CREW</span>
+					<span class="invite-address">Invite: /rooms/{ snapshot.Code }</span>
+				</div>
+				<span class="header-divider" aria-hidden="true"></span>
+				<div class="viewer-meta">
+					<span class="player-avatar">P{ strconv.Itoa(playerNumber(snapshot, snapshot.Viewer.ID)) }</span>
+					<span class="viewer-copy">
+						<span class="meta-label">PLAYING AS</span>
+						<span class="viewer-name">{ snapshot.Viewer.Username }</span>
+					</span>
+				</div>
 			</div>
-			<p class="player-count">{ strconv.Itoa(len(snapshot.Players)) } / 8 players</p>
 		</header>
 		if message != "" {
-			<p class="notice error-notice" role="alert">{ message }</p>
+			<div class="state-alert-wrap"><p class="notice error-notice" role="alert">{ message }</p></div>
 		}
-		<div class="room-layout">
-			<section class="map-panel" aria-labelledby="map-heading">
-				<h3 id="map-heading">Shared map</h3>
-				@MapWithPlayers(snapshot.World, snapshot.Viewer.Player, mapPlayers(snapshot))
+		<div class="tactical-workspace">
+			<section class="map-module" aria-labelledby="map-heading">
+				<header class="module-header">
+					<div class="module-title-group">
+						<h2 id="map-heading">SECTOR MAP</h2>
+						<span class="module-subtitle">{ fmt.Sprintf("%d × %d / LOCAL SCAN", snapshot.World.Width, snapshot.World.Length) }</span>
+					</div>
+					<div class="chart-progress" aria-label={ fmt.Sprintf("%d of %d rooms charted", charted, snapshot.World.Width*snapshot.World.Length) }>
+						<span>{ fmt.Sprintf("%d / %d ROOMS CHARTED", charted, snapshot.World.Width*snapshot.World.Length) }</span>
+						<span class="progress-track" aria-hidden="true"><span style={ mapProgressStyle(snapshot) }></span></span>
+					</div>
+				</header>
+				<div class="map-body">
+					<div class="chart-viewport">
+						@MapWithPlayers(snapshot.World, snapshot.Viewer.Player, mapPlayers(snapshot))
+					</div>
+					<section class="room-readout" aria-labelledby="current-room-heading">
+						<p class="readout-eyebrow">CURRENT ROOM / { coordinateLabel(snapshot.Viewer.Player.Position, snapshot.World.Length) }</p>
+						<h3 id="current-room-heading">Sector { coordinateLabel(snapshot.Viewer.Player.Position, snapshot.World.Length) }</h3>
+						<p class="room-description">{ roomDescription(snapshot) }</p>
+						<div class="map-legend">
+							<p class="readout-section-title">CHART KEY</p>
+							<ul>
+								<li><span class="legend-player legend-viewer" aria-hidden="true">P{ strconv.Itoa(playerNumber(snapshot, snapshot.Viewer.ID)) }</span><span>Your position</span></li>
+								<li><span class="legend-player legend-crew" aria-hidden="true">P</span><span>Crew positions</span></li>
+								<li><span class="legend-wall legend-normal" aria-hidden="true"></span><span>Normal wall</span></li>
+								<li><span class="legend-wall legend-door" aria-hidden="true"></span><span>Door</span></li>
+								<li><span class="legend-wall legend-damaged" aria-hidden="true"></span><span>Destructible wall</span></li>
+							</ul>
+						</div>
+						<div class={ roomSignalClass(snapshot) }>
+							<span>{ roomSignalTitle(snapshot) }</span>
+							<p>{ roomSignalCopy(snapshot) }</p>
+						</div>
+						<footer class="readout-controls">
+							<div class="move-control-area">
+								<span class="readout-section-title">NEXT MOVE</span>
+								<div class="direction-pad" role="group" aria-label="Movement controls">
+									@MovementForm(snapshot, "north", "N", snapshot.Moves.North.Possible)
+									@MovementForm(snapshot, "south", "S", snapshot.Moves.South.Possible)
+									@MovementForm(snapshot, "east", "E", snapshot.Moves.East.Possible)
+									@MovementForm(snapshot, "west", "W", snapshot.Moves.West.Possible)
+								</div>
+							</div>
+							<div class="game-action-area">
+								if snapshot.Status == match.Lobby {
+									if snapshot.Viewer.ID == snapshot.HostPlayerID {
+										<form method="post" action={ "/rooms/" + snapshot.Code + "/start" } hx-post={ "/rooms/" + snapshot.Code + "/start" } hx-target="#room-state" hx-swap="outerHTML" hx-sync="#room-sync:queue" hx-disabled-elt="find button">
+											<button type="submit" class="game-action-button">Start game</button>
+										</form>
+									} else {
+										<p class="action-status">Waiting for host to start</p>
+									}
+								} else if snapshot.Status == match.Active {
+									if snapshot.Viewer.ID == snapshot.HostPlayerID {
+										<form method="post" action={ "/rooms/" + snapshot.Code + "/finish" } hx-post={ "/rooms/" + snapshot.Code + "/finish" } hx-target="#room-state" hx-swap="outerHTML" hx-sync="#room-sync:queue" hx-disabled-elt="find button">
+											<button type="submit" class="game-action-button game-action-finish">Finish game</button>
+										</form>
+									} else {
+										<p class="action-status">Explore the shared sector</p>
+									}
+								} else {
+									<p class="action-status">Game finished · final positions shown</p>
+								}
+								<form method="post" action={ "/rooms/" + snapshot.Code + "/leave" }>
+									<button type="submit" class="leave-button" title="Leaving abandons this player and removes it from the room.">Leave game</button>
+								</form>
+								<span class="leave-note">Leaving abandons this player.</span>
+							</div>
+						</footer>
+					</section>
+				</div>
 			</section>
-			<aside class="players-panel" aria-labelledby="players-heading">
-				<h3 id="players-heading">Players</h3>
-				<ul class="player-list">
-					for _, participant := range snapshot.Players {
-						<li
-							class="player-row"
-							data-player-id={ participant.ID }
-							data-x={ strconv.Itoa(participant.Player.Position.X) }
-							data-y={ strconv.Itoa(participant.Player.Position.Y) }
-							data-health={ strconv.Itoa(participant.Player.Health) }
-						>
-							<span class="player-name">
-								{ participant.Username }
-								if participant.ID == snapshot.HostPlayerID {
-									<span class="host-badge">Host</span>
-								}
-								if participant.ID == snapshot.Viewer.ID {
-									<span class="you-badge">You</span>
-								}
-							</span>
-							<span class="player-stats">Position { participant.Player.Position.X }, { participant.Player.Position.Y } · Health { participant.Player.Health }</span>
-						</li>
-					}
-				</ul>
+			<aside class="intel-sidebar" aria-label="Crew status">
+				<section class="directive-card" aria-labelledby="directive-heading">
+					<p class="directive-kicker">CURRENT DIRECTIVE</p>
+					<div class="directive-copy">
+						if snapshot.Viewer.Player.Role != "" {
+							<h2 id="directive-heading">{ roleLabel(snapshot.Viewer.Player.Role) }</h2>
+						} else {
+							<h2 id="directive-heading">Awaiting a directive</h2>
+						}
+						<p>{ directiveCopy(snapshot) }</p>
+					</div>
+				</section>
+				<section class="crew-panel" aria-labelledby="crew-heading">
+					<header class="sidebar-panel-header">
+						<h2 id="crew-heading">CREW MEMBERS</h2>
+						<span>{ fmt.Sprintf("%02d / 08", len(snapshot.Players)) }</span>
+					</header>
+					<ul class="player-list">
+						for _, participant := range snapshot.Players {
+							<li
+								class={ playerRowClass(participant, snapshot) }
+								data-player-id={ participant.ID }
+								data-x={ strconv.Itoa(participant.Player.Position.X) }
+								data-y={ strconv.Itoa(participant.Player.Position.Y) }
+								data-health={ strconv.Itoa(participant.Player.Health) }
+							>
+								<span class={ playerBadgeClass(participant, snapshot) } aria-hidden="true">P{ strconv.Itoa(playerNumber(snapshot, participant.ID)) }</span>
+								<span class="crew-identity">
+									<span class="crew-name">{ participant.Username }</span>
+									<span class="crew-metadata">{ coordinateLabel(participant.Player.Position, snapshot.World.Length) } · { strconv.Itoa(participant.Player.Health) } HP</span>
+								</span>
+								<span class="crew-status">
+									if participant.ID == snapshot.HostPlayerID {
+										<span class="host-badge">Host</span>
+									}
+									if participant.ID == snapshot.Viewer.ID {
+										<span class="you-badge">You</span>
+									}
+									if participant.ID != snapshot.HostPlayerID && participant.ID != snapshot.Viewer.ID {
+										<span class="crew-life-status">{ playerVitalsStatus(participant.Player) }</span>
+									}
+								</span>
+							</li>
+						}
+					</ul>
+				</section>
+				<section class="vitals-panel" aria-labelledby="vitals-heading">
+					<header class="vitals-heading">
+						<h2 id="vitals-heading">P{ strconv.Itoa(playerNumber(snapshot, snapshot.Viewer.ID)) } / VITALS</h2>
+						<span>{ playerVitalsStatus(snapshot.Viewer.Player) }</span>
+					</header>
+					<div class="vital-row">
+						<span>HEALTH { strconv.Itoa(snapshot.Viewer.Player.Health) }</span>
+						<span class="vital-track"><span class="health-fill" style={ vitalFillStyle(snapshot.Viewer.Player.Health) }></span></span>
+					</div>
+					<div class="vital-row">
+						<span>STAMINA { strconv.Itoa(snapshot.Viewer.Player.Stamina) }</span>
+						<span class="vital-track"><span class="stamina-fill" style={ vitalFillStyle(snapshot.Viewer.Player.Stamina) }></span></span>
+					</div>
+					<div class="strength-row"><span>STRENGTH</span><strong>{ fmt.Sprintf("%.2f×", snapshot.Viewer.Player.Strength) }</strong></div>
+				</section>
 			</aside>
 		</div>
-		<section class="controls-panel" aria-labelledby="controls-heading">
-			<h3 id="controls-heading">Game controls</h3>
-			if snapshot.Status == match.Lobby {
-				if snapshot.Viewer.ID == snapshot.HostPlayerID {
-					<form method="post" action={ "/rooms/" + snapshot.Code + "/start" } hx-post={ "/rooms/" + snapshot.Code + "/start" } hx-target="#room-state" hx-swap="outerHTML" hx-sync="#room-sync:queue" hx-disabled-elt="find button">
-						<button type="submit">Start game</button>
-					</form>
-				} else {
-					<p class="muted-copy">Waiting for the host to start the game.</p>
-				}
-			} else if snapshot.Status == match.Active {
-				<div class="active-controls">
-					<div class="direction-pad" aria-label="Movement controls">
-						@MovementForm(snapshot, "north", "North", snapshot.Moves.North.Possible)
-						<div class="horizontal-moves">
-							@MovementForm(snapshot, "west", "West", snapshot.Moves.West.Possible)
-							@MovementForm(snapshot, "south", "South", snapshot.Moves.South.Possible)
-							@MovementForm(snapshot, "east", "East", snapshot.Moves.East.Possible)
-						</div>
+		<section class="dock-outer" aria-label="Nearby room objects">
+			<div class="dock-panel">
+				<div class="object-count">
+					<span>ROOM<br/>OBJECTS</span>
+					<strong>{ fmt.Sprintf("%02d", len(items)) }<small>/ 06</small></strong>
+				</div>
+				<div class="object-slots">
+					<div class="slots-heading"><span>QUICKBELT</span><span>ROOM ITEMS · NOT CARRIED</span></div>
+					<div class="quickbelt-slots" role="group" aria-label="Nearby room objects">
+						for slot := 0; slot < 6; slot++ {
+							if slot < len(items) {
+								{{ item := items[slot] }}
+								<button type="button" class={ quickSlotClass(slot) } data-quick-slot={ strconv.Itoa(slot) } data-room-code={ snapshot.Code } data-item-name={ item.Name } data-item-description={ item.Description } aria-pressed={ strconv.FormatBool(slot == 0) } aria-label={ fmt.Sprintf("Inspect %s in room slot %d", item.Name, slot+1) }>
+									<span class="slot-topline"><span>{ strconv.Itoa(slot + 1) }</span><span>×1</span></span>
+									<span class={ "item-glyph item-glyph-" + item.Class } aria-hidden="true">{ item.Glyph }</span>
+									<span class="slot-item-name">{ item.Name }</span>
+								</button>
+							} else {
+								<button type="button" class="quick-slot quick-slot-empty" disabled aria-label={ fmt.Sprintf("Empty room slot %d", slot+1) }>
+									<span class="slot-topline"><span>{ strconv.Itoa(slot + 1) }</span><span>—</span></span>
+									<span class="empty-slot-glyph" aria-hidden="true"></span>
+									<span class="slot-item-name">EMPTY</span>
+								</button>
+							}
+						}
 					</div>
-					if snapshot.Viewer.ID == snapshot.HostPlayerID {
-						<form method="post" action={ "/rooms/" + snapshot.Code + "/finish" } hx-post={ "/rooms/" + snapshot.Code + "/finish" } hx-target="#room-state" hx-swap="outerHTML" hx-sync="#room-sync:queue" hx-disabled-elt="find button">
-							<button type="submit" class="button-danger">Finish game</button>
-						</form>
+				</div>
+				<div class="item-detail" data-item-detail>
+					if len(items) > 0 {
+						{{ item := items[0] }}
+						<span class={ "item-detail-glyph item-glyph-" + item.Class } aria-hidden="true"><span data-detail-glyph>{ item.Glyph }</span></span>
+						<div class="item-detail-copy">
+							<span class="item-detail-label">LOCAL SALVAGE · ROOM OBJECT</span>
+							<strong data-detail-name>{ item.Name }</strong>
+							<p data-detail-description>{ item.Description }</p>
+						</div>
+						<button type="button" class="inspect-button" data-inspect-trigger>Inspect</button>
+					} else {
+						<span class="item-detail-glyph item-detail-empty" aria-hidden="true"><span data-detail-glyph>—</span></span>
+						<div class="item-detail-copy">
+							<span class="item-detail-label">LOCAL SCAN</span>
+							<strong data-detail-name>No room objects</strong>
+							<p data-detail-description>This room has no available objects.</p>
+						</div>
+						<button type="button" class="inspect-button" data-inspect-trigger disabled>Inspect</button>
 					}
 				</div>
-			} else {
-				<p class="muted-copy">This game is finished. Players can reconnect to view the final positions and stats.</p>
-			}
+			</div>
 		</section>
 	</section>
+}
+
+templ InspectDialog() {
+	<dialog class="inspect-dialog" data-inspect-dialog aria-labelledby="inspect-dialog-title">
+		<form method="dialog">
+			<p class="panel-kicker">ROOM OBJECT</p>
+			<h2 id="inspect-dialog-title" data-dialog-name></h2>
+			<p data-dialog-description></p>
+			<button type="submit">Close</button>
+		</form>
+	</dialog>
 }
 
 templ MovementForm(snapshot match.Snapshot, direction, label string, possible bool) {
 	<form method="post" action={ "/rooms/" + snapshot.Code + "/actions" } hx-post={ "/rooms/" + snapshot.Code + "/actions" } hx-target="#room-state" hx-swap="outerHTML" hx-sync="#room-sync:queue" hx-disabled-elt="find button">
 		<input type="hidden" name="direction" value={ direction }/>
 		if possible && snapshot.Status == match.Active {
-			<button type="submit" aria-label={ "Move " + direction }>{ label }</button>
+			<button type="submit" aria-label={ "Move " + direction } title={ "Move " + direction }>{ label }</button>
 		} else {
-			<button type="submit" aria-label={ "Move " + direction } disabled>{ label }</button>
+			<button type="submit" aria-label={ "Move " + direction } title={ "Move " + direction } disabled>{ label }</button>
 		}
 	</form>
 }
@@ -158,12 +291,13 @@ func roomStatusLabel(status match.Status) string {
 
 func mapPlayers(snapshot match.Snapshot) []MapPlayer {
 	players := make([]MapPlayer, 0, len(snapshot.Players))
-	for _, participant := range snapshot.Players {
+	for index, participant := range snapshot.Players {
 		players = append(players, MapPlayer{
 			ID:       participant.ID,
 			Username: participant.Username,
 			Position: participant.Player.Position,
 			IsViewer: participant.ID == snapshot.Viewer.ID,
+			Number:   index + 1,
 		})
 	}
 	return players

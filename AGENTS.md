@@ -15,7 +15,7 @@
 - Edit `templ/*.templ`; checked-in `templ/*_templ.go` files are generated. Do not edit generated files manually.
 - Match the generator to templ runtime `v0.3.906`: `go install github.com/a-h/templ/cmd/templ@v0.3.906`.
 - After template edits, run `templ generate` from the repository root before build/test and include generated-file changes.
-- Include regenerated map output when changing its source; the map uses `border-width: 3px`.
+- Include regenerated map output when changing its source. Shared walls render once at 3px thickness: normal walls `#E8DEC3`, doors `#4AA6C8`, and destructible walls `#D85B52`.
 
 ## Execution and sessions
 
@@ -31,3 +31,5 @@
 - Generation methods are `Generate_player`, `Generate_room`, and `Generate_map`. Room/map generation accepts an optional `*rand.Rand` from `math/rand/v2`; use `rand.New(rand.NewPCG(seed1, seed2))` for deterministic tests.
 - Shared walls are stored as values in both adjacent rooms; update both sides together.
 - Map coordinates have `(0,0)` at bottom-left; `templ/map.templ` renders Y in descending order.
+- The tactical chart labels columns alphabetically and screen rows from top to bottom. A displayed row number is `Map.Length - Position.Y`.
+- The frontend follows the read-only `web_roguelike` Paper mockup. Keep its visual palette and panel proportions while binding HUD values to real match snapshots.

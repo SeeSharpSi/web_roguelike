@@ -42,7 +42,7 @@ func PageHead(title string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><link rel=\"icon\" href=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%232a273f'/%3E%3Cpath d='M4 4h8v2H6v2h5v2H6v2H4z' fill='%23c4a7e7'/%3E%3C/svg%3E\"><link rel=\"stylesheet\" type=\"text/css\" href=\"/static/styles.css\"><script type=\"text/javascript\" src=\"/static/htmx.min.js\"></script><script>\n\t\t\tdocument.addEventListener(\"htmx:beforeSwap\", function (event) {\n\t\t\t\tif ([400, 401, 403, 404, 409, 410, 413, 422].includes(event.detail.xhr.status)) {\n\t\t\t\t\tevent.detail.shouldSwap = true;\n\t\t\t\t\tevent.detail.isError = false;\n\t\t\t\t}\n\t\t\t});\n\t\t</script></head>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><link rel=\"icon\" href=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M4 4h8v8H4z' fill='none' stroke='%23F2B51D' stroke-width='1.5'/%3E%3C/svg%3E\"><link rel=\"stylesheet\" type=\"text/css\" href=\"/static/styles.css\"><link rel=\"stylesheet\" type=\"text/css\" href=\"/static/map.css\"><script type=\"text/javascript\" src=\"/static/htmx.min.js\"></script><script type=\"text/javascript\" src=\"/static/game-ui.js\" defer></script><script>\n\t\t\tdocument.addEventListener(\"htmx:beforeSwap\", function (event) {\n\t\t\t\tif ([400, 401, 403, 404, 409, 410, 413, 422].includes(event.detail.xhr.status)) {\n\t\t\t\t\tevent.detail.shouldSwap = true;\n\t\t\t\t\tevent.detail.isError = false;\n\t\t\t\t}\n\t\t\t});\n\t\t</script></head>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -75,11 +75,11 @@ func Index(username, code, message string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = PageHead("Shared Roguelike").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = PageHead("The Hollow Sector · Expedition 07").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<body><main class=\"page-shell home-shell\"><header class=\"site-heading\"><p class=\"eyebrow\">Shared-world multiplayer</p><h1>Roguelike rooms</h1><p class=\"intro\">Explore one shared map with friends. Create a room or join with its code.</p></header>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<body class=\"entry-body\"><main class=\"entry-shell\"><header class=\"entry-heading\"><div class=\"brand-emblem\" aria-hidden=\"true\"><span>07</span></div><div><p class=\"entry-kicker\">DEEP-SPACE EXPEDITION</p><h1>THE HOLLOW SECTOR</h1><p class=\"entry-intro\">Shared map. One crew. Find your way through the sector together.</p></div></header>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -91,7 +91,7 @@ func Index(username, code, message string) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(message)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 34, Col: 58}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 39, Col: 58}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -102,27 +102,27 @@ func Index(username, code, message string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"lobby-cards\"><section class=\"card\" aria-labelledby=\"create-heading\"><h2 id=\"create-heading\">Create a game</h2><form method=\"post\" action=\"/rooms\" class=\"stack-form\"><label for=\"create-username\">Username</label> <input id=\"create-username\" name=\"username\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"entry-cards\"><section class=\"entry-card\" aria-labelledby=\"create-heading\"><p class=\"panel-kicker\">NEW EXPEDITION</p><h2 id=\"create-heading\">Create a room</h2><p class=\"entry-card-copy\">Open a shared sector and invite your crew with its room code.</p><form method=\"post\" action=\"/rooms\" class=\"entry-form\"><label for=\"create-username\">Username</label> <input id=\"create-username\" name=\"username\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(username)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 41, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 48, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" maxlength=\"32\" autocomplete=\"nickname\" required> <button type=\"submit\">Create room</button></form></section><section class=\"card\" aria-labelledby=\"join-heading\"><h2 id=\"join-heading\">Join a game</h2><form method=\"post\" action=\"/rooms/join\" class=\"stack-form\"><label for=\"join-code\">Room code</label> <input id=\"join-code\" name=\"code\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" maxlength=\"32\" autocomplete=\"nickname\" required> <button type=\"submit\">Create room</button></form></section><section class=\"entry-card\" aria-labelledby=\"join-heading\"><p class=\"panel-kicker\">JOIN YOUR CREW</p><h2 id=\"join-heading\">Enter a room</h2><p class=\"entry-card-copy\">Use the room code and same username to reconnect to your player.</p><form method=\"post\" action=\"/rooms/join\" class=\"entry-form\"><label for=\"join-code\">Room code</label> <input id=\"join-code\" name=\"code\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(code)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 49, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 58, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -135,13 +135,13 @@ func Index(username, code, message string) templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(username)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 51, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 60, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" maxlength=\"32\" autocomplete=\"nickname\" required> <button type=\"submit\">Join room</button></form></section></div><p class=\"reconnect-note\">To reconnect after losing your browser session, enter the same room code and username. Your latest connection takes control of your existing player.</p></main></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" maxlength=\"32\" autocomplete=\"nickname\" required> <button type=\"submit\">Join room</button></form></section></div><p class=\"reconnect-note\">Lost your browser session? Enter the same room code and username. Your latest connection takes control of your existing player.</p></main></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -178,20 +178,20 @@ func JoinRoomPage(code, username, message string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<body><main class=\"page-shell narrow-shell\"><a class=\"back-link\" href=\"/\">Back to rooms</a><p class=\"eyebrow\">Room code</p><h1>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<body class=\"entry-body\"><main class=\"entry-shell narrow-entry-shell\"><a class=\"back-link\" href=\"/\">Back to rooms</a><header class=\"entry-heading compact-entry-heading\"><div class=\"brand-emblem\" aria-hidden=\"true\"><span>07</span></div><div><p class=\"entry-kicker\">ROOM CODE</p><h1 class=\"join-code\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(code)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 70, Col: 14}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 82, Col: 34}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</h1>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</h1></div></header>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -203,7 +203,7 @@ func JoinRoomPage(code, username, message string) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(message)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 72, Col: 58}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 86, Col: 58}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -214,7 +214,7 @@ func JoinRoomPage(code, username, message string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<p class=\"intro\">Enter a username to join this room. Returning players reconnect to their existing character.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<p class=\"entry-intro\">Enter a username to join. Returning players reconnect to their existing character.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -226,20 +226,20 @@ func JoinRoomPage(code, username, message string) templ.Component {
 		var templ_7745c5c3_Var11 templ.SafeURL
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs("/rooms/" + code + "/join")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 76, Col: 59}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 90, Col: 59}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" class=\"stack-form card\"><label for=\"room-username\">Username</label> <input id=\"room-username\" name=\"username\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" class=\"entry-form entry-card\"><label for=\"room-username\">Username</label> <input id=\"room-username\" name=\"username\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(username)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 78, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 92, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -282,14 +282,14 @@ func MissingRoomPage(code string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<body><main class=\"page-shell narrow-shell\"><p class=\"eyebrow\">Room unavailable</p><h1>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<body class=\"entry-body\"><main class=\"entry-shell narrow-entry-shell\"><p class=\"entry-kicker\">ROOM UNAVAILABLE</p><h1 class=\"missing-code\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(code)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 93, Col: 14}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/index.templ`, Line: 107, Col: 35}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {

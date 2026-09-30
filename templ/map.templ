@@ -3,6 +3,7 @@ package templ
 import (
 	"fmt"
 	"strconv"
+
 	"seesharpsi/web_roguelike/game"
 )
 
@@ -11,24 +12,141 @@ type MapPlayer struct {
 	Username string
 	Position game.Pos
 	IsViewer bool
+	Number   int
 }
 
-// wallColor is a helper function to map wall types to CSS colors.
 func wallColor(wallType string) string {
 	switch wallType {
-	case "empty":
+	case game.WallEmpty:
 		return "transparent"
-	case "door":
-		return "saddlebrown"
-	case "hidden_door":
-		return "peru" // A lighter brown for hidden doors
-	case "indestructible":
-		return "black"
-	case "destructible":
-		return "firebrick"
+	case game.WallDoor, game.WallHiddenDoor:
+		return "#4AA6C8"
+	case game.WallIndestructible:
+		return "#E8DEC3"
+	case game.WallDestructible:
+		return "#D85B52"
 	default:
-		return "lightgrey" // A fallback for any unknown wall type
+		return "#E8DEC3"
 	}
+}
+
+func roomCellClass(p game.Player, position game.Pos, charted bool) string {
+	class := "room-cell uncharted-room"
+	if charted {
+		class = "room-cell charted-room"
+	}
+	if p.Alive && p.Position == position {
+		class += " viewer-position"
+	}
+	return class
+}
+
+func mapColumnLabel(index int) string {
+	if index < 0 {
+		return ""
+	}
+
+	label := ""
+	for index++; index > 0; index = (index - 1) / 26 {
+		label = string(rune('A'+(index-1)%26)) + label
+	}
+	return label
+}
+
+func mapMarkerNumber(player MapPlayer, index int) int {
+	if player.Number > 0 {
+		return player.Number
+	}
+	return index + 1
+}
+
+func mapMarkerLabel(player MapPlayer, index int) string {
+	return fmt.Sprintf("P%d", mapMarkerNumber(player, index))
+}
+
+func mapMarkerAccessibleLabel(player MapPlayer, index int, m game.Map) string {
+	coordinate := fmt.Sprintf("%s%d", mapColumnLabel(player.Position.X), m.Length-player.Position.Y)
+	return fmt.Sprintf("Player %s, %s, at %s", mapMarkerLabel(player, index), player.Username, coordinate)
+}
+
+func mapMarkerStyle(offsetX, offsetY int) string {
+	return fmt.Sprintf("--marker-offset-x: %dpx; --marker-offset-y: %dpx;", offsetX, offsetY)
+}
+
+func mapMarkerClass(player MapPlayer) string {
+	if player.IsViewer {
+		return "map-marker viewer-marker"
+	}
+	return "map-marker crew-marker"
+}
+
+func mapViewerAtPosition(players []MapPlayer, position game.Pos) (MapPlayer, int, bool) {
+	for index, player := range players {
+		if player.IsViewer && player.Position == position {
+			return player, index, true
+		}
+	}
+	return MapPlayer{}, -1, false
+}
+
+func mapCrewIndexesAtPosition(players []MapPlayer, position game.Pos) []int {
+	indexes := make([]int, 0, len(players))
+	for index, player := range players {
+		if !player.IsViewer && player.Position == position {
+			indexes = append(indexes, index)
+		}
+	}
+	return indexes
+}
+
+func mapPlayerCoordinate(position game.Pos, m game.Map) string {
+	return fmt.Sprintf("%s%d", mapColumnLabel(position.X), m.Length-position.Y)
+}
+
+func mapCrewGroupDetails(players []MapPlayer, indexes []int) string {
+	details := ""
+	for _, index := range indexes {
+		if details != "" {
+			details += ", "
+		}
+		details += fmt.Sprintf("%s %s", mapMarkerLabel(players[index], index), players[index].Username)
+	}
+	return details
+}
+
+func mapCrewGroupAccessibleLabel(players []MapPlayer, indexes []int, position game.Pos, m game.Map, hasViewer bool) string {
+	count := len(indexes)
+	unit := "players"
+	if count == 1 {
+		unit = "player"
+	}
+	if hasViewer {
+		unit = "other " + unit
+	}
+	return fmt.Sprintf("%d %s at %s: %s", count, unit, mapPlayerCoordinate(position, m), mapCrewGroupDetails(players, indexes))
+}
+
+func mapCrewGroupClass(hasViewer bool) string {
+	if hasViewer {
+		return "map-marker map-marker-group-badge with-viewer"
+	}
+	return "map-marker map-marker-group-badge"
+}
+
+func mapCrewGroupStyle(hasViewer bool) string {
+	if hasViewer {
+		return mapMarkerStyle(7, 7)
+	}
+	return mapMarkerStyle(0, 0)
+}
+
+func mapPositionCharted(explored map[game.Pos]*game.Room, position game.Pos) bool {
+	_, ok := explored[position]
+	return ok
+}
+
+func mapWallVisible(explored map[game.Pos]*game.Room, position, neighbor game.Pos, showAll bool) bool {
+	return showAll || mapPositionCharted(explored, position) || mapPositionCharted(explored, neighbor)
 }
 
 templ Map(m game.Map, p game.Player) {
@@ -36,81 +154,125 @@ templ Map(m game.Map, p game.Player) {
 }
 
 templ MapWithPlayers(m game.Map, p game.Player, players []MapPlayer) {
-	<style>
-		.map-grid {
-			display: grid;
-			/** border: 2px solid #333; **/
-			background-color: #f0f0f0;
-            max-width: fit-content; 
-			// The grid dimensions are set dynamically via an inline style attribute.
-		}
-		.room-cell, .empty-cell {
-			width: 60px;
-			height: 60px;
-			box-sizing: border-box; /* Ensures padding and border are included in the element's total width and height */
-		}
-		.room-cell {
-			background-color: #fff;
-			border-style: solid;
-			border-width: 3px; /* A nice, thick border to be visible */
-		}
-		.empty-cell {
-			background-color: #ccc;
-		}
-	</style>
-
-	// Create the grid container.
-	// We use an inline style to set the grid dimensions based on the map's width and length.
-	<div
-		class="map-grid"
-		style={ fmt.Sprintf("grid-template-columns: repeat(%d, 60px); grid-template-rows: repeat(%d, 60px);", m.Width, m.Length) }
-	>
-		// We loop from top to bottom (y = Length-1 to 0) to make (0,0) appear at the bottom-left.
-		for y := m.Length - 1; y >= 0; y-- {
-			// Then we loop from left to right (x = 0 to Width-1).
+	{{ showAll := players == nil }}
+	<div class="sector-chart" data-map-width={ strconv.Itoa(m.Width) } data-map-length={ strconv.Itoa(m.Length) }>
+		<div class="map-column-labels" aria-hidden="true" style={ fmt.Sprintf("grid-template-columns: repeat(%d, var(--map-cell-size));", m.Width) }>
 			for x := 0; x < m.Width; x++ {
-				// Check if a room exists at the current coordinate (x, y).
-				{{ current_pos := game.Pos{X: x, Y: y} }}
-				if room, exists := m.Rooms[current_pos]; exists {
-					// If a room exists, create a div for it.
-					// We use an inline style to set the specific border colors for each of the four walls.
-					<div
-						class={ roomCellClass(p, current_pos) }
-						style={
-							"border-top-color: " + wallColor(room.NWall.Type) + ";" +
-							"border-right-color: " + wallColor(room.EWall.Type) + ";" +
-							"border-bottom-color: " + wallColor(room.SWall.Type) + ";" +
-							"border-left-color: " + wallColor(room.WWall.Type) + ";"
-						}
-					>
-						for index, player := range players {
-							if player.Position == current_pos {
-								<span class={ mapMarkerClass(player) } style={ fmt.Sprintf("top: %dpx; left: %dpx;", 6+index*6, 6+index*5) } data-player-id={ player.ID } aria-label={ player.Username + " at " + strconv.Itoa(x) + "," + strconv.Itoa(y) } title={ player.Username }>
-									<span class="map-marker-dot" aria-hidden="true"></span>
-									<span class="map-marker-name">{ player.Username }</span>
-								</span>
+				<span class="map-column-label">{ mapColumnLabel(x) }</span>
+			}
+		</div>
+		<div class="map-chart-matrix">
+			<div class="map-row-labels" aria-hidden="true">
+				for y := m.Length - 1; y >= 0; y-- {
+					<span class="map-row-label">{ strconv.Itoa(m.Length - y) }</span>
+				}
+			</div>
+			<div class="map-grid-wrap">
+				<div
+					class="map-grid"
+					style={ fmt.Sprintf("grid-template-columns: repeat(%d, var(--map-cell-size)); grid-template-rows: repeat(%d, var(--map-cell-size));", m.Width, m.Length) }
+				>
+					for y := m.Length - 1; y >= 0; y-- {
+						for x := 0; x < m.Width; x++ {
+							{{ currentPos := game.Pos{X: x, Y: y} }}
+							if room, exists := m.Rooms[currentPos]; exists && room != nil {
+								{{ charted := showAll || mapPositionCharted(m.Explored, currentPos) }}
+								<div
+									class={ roomCellClass(p, currentPos, charted) }
+									style={ "border-top-color: " + wallColor(room.NWall.Type) + ";" +
+										"border-right-color: " + wallColor(room.EWall.Type) + ";" +
+										"border-bottom-color: " + wallColor(room.SWall.Type) + ";" +
+										"border-left-color: " + wallColor(room.WWall.Type) + ";" }
+									data-x={ strconv.Itoa(x) }
+									data-y={ strconv.Itoa(y) }
+								>
+									if charted {
+										{{ viewer, viewerIndex, hasViewer := mapViewerAtPosition(players, currentPos) }}
+										{{ crewIndexes := mapCrewIndexesAtPosition(players, currentPos) }}
+										if hasViewer {
+											{{ viewerClass := mapMarkerClass(viewer) }}
+											{{ viewerStyle := mapMarkerStyle(0, 0) }}
+											if len(crewIndexes) > 0 {
+												{{ viewerClass += " shared-viewer-marker" }}
+												{{ viewerStyle = mapMarkerStyle(-7, -7) }}
+											}
+											<span
+												class={ viewerClass }
+												style={ viewerStyle }
+												data-player-id={ viewer.ID }
+												role="img"
+												aria-label={ mapMarkerAccessibleLabel(viewer, viewerIndex, m) }
+												title={ viewer.Username }
+											>
+												<span class="map-marker-label">{ mapMarkerLabel(viewer, viewerIndex) }</span>
+											</span>
+										}
+										if len(crewIndexes) == 1 && !hasViewer {
+											{{ index := crewIndexes[0] }}
+											{{ player := players[index] }}
+											<span class={ mapMarkerClass(player) } data-player-id={ player.ID } role="img" aria-label={ mapMarkerAccessibleLabel(player, index, m) } title={ player.Username }>
+												<span class="map-marker-label">{ mapMarkerLabel(player, index) }</span>
+											</span>
+										} else if len(crewIndexes) > 0 {
+											<span
+												class={ mapCrewGroupClass(hasViewer) }
+												style={ mapCrewGroupStyle(hasViewer) }
+												role="img"
+												aria-label={ mapCrewGroupAccessibleLabel(players, crewIndexes, currentPos, m, hasViewer) }
+												title={ mapCrewGroupAccessibleLabel(players, crewIndexes, currentPos, m, hasViewer) }
+											>
+												<span class="map-marker-label">+{ strconv.Itoa(len(crewIndexes)) }</span>
+											</span>
+											for _, index := range crewIndexes {
+												{{ player := players[index] }}
+												<span class="map-marker-accessible-player" data-player-id={ player.ID } role="img" aria-label={ mapMarkerAccessibleLabel(player, index, m) } title={ player.Username }></span>
+											}
+										}
+									}
+								</div>
+							} else {
+								<div class="empty-cell" data-x={ strconv.Itoa(x) } data-y={ strconv.Itoa(y) }></div>
 							}
 						}
-					</div>
-				} else {
-					// If no room exists, create an empty, grayed-out cell as a placeholder.
-					<div class="empty-cell" data-x={ strconv.Itoa(x) } data-y={ strconv.Itoa(y) }></div>
-				}
-			}
-		}
+					}
+				</div>
+				@mapWallOverlay(m, showAll)
+			</div>
+		</div>
 	</div>
 }
 
-func roomCellClass(p game.Player, position game.Pos) string {
-	if p.Position == position && p.Alive {
-		return "room-cell viewer-position"
-	}
-	return "room-cell"
+templ mapWallOverlay(m game.Map, showAll bool) {
+	<svg
+		class="map-walls"
+		viewBox={ fmt.Sprintf("0 0 %d %d", m.Width*38, m.Length*38) }
+		aria-hidden="true"
+		focusable="false"
+	>
+		for y := m.Length - 1; y >= 0; y-- {
+			for x := 0; x < m.Width; x++ {
+				{{ position := game.Pos{X: x, Y: y} }}
+				if room, exists := m.Rooms[position]; exists && room != nil {
+					{{ row := m.Length - 1 - y }}
+					if room.NWall.Type != game.WallEmpty && mapWallVisible(m.Explored, position, game.Pos{X: x, Y: y + 1}, showAll) {
+						<line class="map-wall" data-wall-type={ string(room.NWall.Type) } data-x={ strconv.Itoa(x) } data-y={ strconv.Itoa(y) } x1={ strconv.Itoa(x * 38) } y1={ strconv.Itoa(row * 38) } x2={ strconv.Itoa((x + 1) * 38) } y2={ strconv.Itoa(row * 38) } stroke={ wallColor(room.NWall.Type) }></line>
+					}
+					if room.WWall.Type != game.WallEmpty && mapWallVisible(m.Explored, position, game.Pos{X: x - 1, Y: y}, showAll) {
+						<line class="map-wall" data-wall-type={ string(room.WWall.Type) } data-x={ strconv.Itoa(x) } data-y={ strconv.Itoa(y) } x1={ strconv.Itoa(x * 38) } y1={ strconv.Itoa(row * 38) } x2={ strconv.Itoa(x * 38) } y2={ strconv.Itoa((row + 1) * 38) } stroke={ wallColor(room.WWall.Type) }></line>
+					}
+					if (x == m.Width-1 || !mapPositionExists(m.Rooms, game.Pos{X: x + 1, Y: y})) && room.EWall.Type != game.WallEmpty && mapWallVisible(m.Explored, position, game.Pos{X: x + 1, Y: y}, showAll) {
+						<line class="map-wall" data-wall-type={ string(room.EWall.Type) } data-x={ strconv.Itoa(x) } data-y={ strconv.Itoa(y) } x1={ strconv.Itoa((x + 1) * 38) } y1={ strconv.Itoa(row * 38) } x2={ strconv.Itoa((x + 1) * 38) } y2={ strconv.Itoa((row + 1) * 38) } stroke={ wallColor(room.EWall.Type) }></line>
+					}
+					if (y == 0 || !mapPositionExists(m.Rooms, game.Pos{X: x, Y: y - 1})) && room.SWall.Type != game.WallEmpty && mapWallVisible(m.Explored, position, game.Pos{X: x, Y: y - 1}, showAll) {
+						<line class="map-wall" data-wall-type={ string(room.SWall.Type) } data-x={ strconv.Itoa(x) } data-y={ strconv.Itoa(y) } x1={ strconv.Itoa(x * 38) } y1={ strconv.Itoa((row + 1) * 38) } x2={ strconv.Itoa((x + 1) * 38) } y2={ strconv.Itoa((row + 1) * 38) } stroke={ wallColor(room.SWall.Type) }></line>
+					}
+				}
+			}
+		}
+	</svg>
 }
 
-func mapMarkerClass(player MapPlayer) string {
-	if player.IsViewer {
-		return "map-marker viewer-marker"
-	}
-	return "map-marker"
+func mapPositionExists(rooms map[game.Pos]*game.Room, position game.Pos) bool {
+	room, ok := rooms[position]
+	return ok && room != nil
 }

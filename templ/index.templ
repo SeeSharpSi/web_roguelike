@@ -5,9 +5,11 @@ templ PageHead(title string) {
 		<title>{ title }</title>
 		<meta charset="UTF-8"/>
 		<meta name="viewport" content="width=device-width, initial-scale=1"/>
-		<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%232a273f'/%3E%3Cpath d='M4 4h8v2H6v2h5v2H6v2H4z' fill='%23c4a7e7'/%3E%3C/svg%3E"/>
+		<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M4 4h8v8H4z' fill='none' stroke='%23F2B51D' stroke-width='1.5'/%3E%3C/svg%3E"/>
 		<link rel="stylesheet" type="text/css" href="/static/styles.css"/>
+		<link rel="stylesheet" type="text/css" href="/static/map.css"/>
 		<script type="text/javascript" src="/static/htmx.min.js"></script>
+		<script type="text/javascript" src="/static/game-ui.js" defer></script>
 		<script>
 			document.addEventListener("htmx:beforeSwap", function (event) {
 				if ([400, 401, 403, 404, 409, 410, 413, 422].includes(event.detail.xhr.status)) {
@@ -22,29 +24,36 @@ templ PageHead(title string) {
 templ Index(username, code, message string) {
 	<!DOCTYPE html>
 	<html lang="en">
-		@PageHead("Shared Roguelike")
-		<body>
-			<main class="page-shell home-shell">
-				<header class="site-heading">
-					<p class="eyebrow">Shared-world multiplayer</p>
-					<h1>Roguelike rooms</h1>
-					<p class="intro">Explore one shared map with friends. Create a room or join with its code.</p>
+		@PageHead("The Hollow Sector · Expedition 07")
+		<body class="entry-body">
+			<main class="entry-shell">
+				<header class="entry-heading">
+					<div class="brand-emblem" aria-hidden="true"><span>07</span></div>
+					<div>
+						<p class="entry-kicker">DEEP-SPACE EXPEDITION</p>
+						<h1>THE HOLLOW SECTOR</h1>
+						<p class="entry-intro">Shared map. One crew. Find your way through the sector together.</p>
+					</div>
 				</header>
 				if message != "" {
 					<p class="notice error-notice" role="alert">{ message }</p>
 				}
-				<div class="lobby-cards">
-					<section class="card" aria-labelledby="create-heading">
-						<h2 id="create-heading">Create a game</h2>
-						<form method="post" action="/rooms" class="stack-form">
+				<div class="entry-cards">
+					<section class="entry-card" aria-labelledby="create-heading">
+						<p class="panel-kicker">NEW EXPEDITION</p>
+						<h2 id="create-heading">Create a room</h2>
+						<p class="entry-card-copy">Open a shared sector and invite your crew with its room code.</p>
+						<form method="post" action="/rooms" class="entry-form">
 							<label for="create-username">Username</label>
 							<input id="create-username" name="username" value={ username } maxlength="32" autocomplete="nickname" required/>
 							<button type="submit">Create room</button>
 						</form>
 					</section>
-					<section class="card" aria-labelledby="join-heading">
-						<h2 id="join-heading">Join a game</h2>
-						<form method="post" action="/rooms/join" class="stack-form">
+					<section class="entry-card" aria-labelledby="join-heading">
+						<p class="panel-kicker">JOIN YOUR CREW</p>
+						<h2 id="join-heading">Enter a room</h2>
+						<p class="entry-card-copy">Use the room code and same username to reconnect to your player.</p>
+						<form method="post" action="/rooms/join" class="entry-form">
 							<label for="join-code">Room code</label>
 							<input id="join-code" name="code" value={ code } maxlength="16" autocapitalize="characters" required/>
 							<label for="join-username">Username</label>
@@ -53,7 +62,7 @@ templ Index(username, code, message string) {
 						</form>
 					</section>
 				</div>
-				<p class="reconnect-note">To reconnect after losing your browser session, enter the same room code and username. Your latest connection takes control of your existing player.</p>
+				<p class="reconnect-note">Lost your browser session? Enter the same room code and username. Your latest connection takes control of your existing player.</p>
 			</main>
 		</body>
 	</html>
@@ -63,17 +72,22 @@ templ JoinRoomPage(code, username, message string) {
 	<!DOCTYPE html>
 	<html lang="en">
 		@PageHead("Join room " + code)
-		<body>
-			<main class="page-shell narrow-shell">
+		<body class="entry-body">
+			<main class="entry-shell narrow-entry-shell">
 				<a class="back-link" href="/">Back to rooms</a>
-				<p class="eyebrow">Room code</p>
-				<h1>{ code }</h1>
+				<header class="entry-heading compact-entry-heading">
+					<div class="brand-emblem" aria-hidden="true"><span>07</span></div>
+					<div>
+						<p class="entry-kicker">ROOM CODE</p>
+						<h1 class="join-code">{ code }</h1>
+					</div>
+				</header>
 				if message != "" {
 					<p class="notice error-notice" role="alert">{ message }</p>
 				} else {
-					<p class="intro">Enter a username to join this room. Returning players reconnect to their existing character.</p>
+					<p class="entry-intro">Enter a username to join. Returning players reconnect to their existing character.</p>
 				}
-				<form method="post" action={ "/rooms/" + code + "/join" } class="stack-form card">
+				<form method="post" action={ "/rooms/" + code + "/join" } class="entry-form entry-card">
 					<label for="room-username">Username</label>
 					<input id="room-username" name="username" value={ username } maxlength="32" autocomplete="nickname" required/>
 					<button type="submit">Join room</button>
@@ -87,10 +101,10 @@ templ MissingRoomPage(code string) {
 	<!DOCTYPE html>
 	<html lang="en">
 		@PageHead("Room unavailable")
-		<body>
-			<main class="page-shell narrow-shell">
-				<p class="eyebrow">Room unavailable</p>
-				<h1>{ code }</h1>
+		<body class="entry-body">
+			<main class="entry-shell narrow-entry-shell">
+				<p class="entry-kicker">ROOM UNAVAILABLE</p>
+				<h1 class="missing-code">{ code }</h1>
 				<p class="notice error-notice" role="alert">This room does not exist or is no longer available.</p>
 				<a class="button-link" href="/">Return to rooms</a>
 			</main>

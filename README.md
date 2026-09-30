@@ -25,6 +25,10 @@ Usernames are case-insensitive, with surrounding whitespace ignored, and identif
 - `POST /rooms/{code}/leave`: Abandon the current player.
 - `GET /test`: Template demo.
 
+## Interface
+
+The tactical interface follows the `web_roguelike` Paper mockup, with white normal walls, blue doors, and red destructible walls. Chart columns use letters, and row numbers run from top to bottom. Crew positions, exploration progress, and player vitals update from the shared match state. The object dock lists items in the current room.
+
 ## Verification
 
 ```sh
@@ -35,3 +39,5 @@ go build -o /dev/null .
 ```
 
 With the server running, execute `scripts/test-rooms.playwright.js` through the Playwright MCP `browser_run_code_unsafe` tool using its `filename` parameter. The suite uses independent browser contexts to check shared maps, room isolation, movement, reconnects after losing cookies, previous-session revocation, host transfer, and room closure.
+
+Execute `scripts/test-paper-ui.playwright.js` with the same tool to check desktop panel dimensions, wall colors and thickness, crew alignment, object inspection during polling, movement readouts, and responsive layouts.
