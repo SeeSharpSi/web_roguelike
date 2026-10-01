@@ -240,8 +240,8 @@ func (m *Map) Generate_map(rngs ...*rand.Rand) {
 	m.Rooms = nil
 	m.Explored = nil
 	m.StartPos = Pos{}
-	m.Width = 8 + rng.IntN(2)
-	m.Length = 8 + rng.IntN(2)
+	m.Width = 13
+	m.Length = 13
 	m.Rooms = make(map[Pos]*Room)
 	m.Explored = make(map[Pos]*Room)
 
