@@ -12,6 +12,8 @@ Rooms use one shared map. The host starts and finishes the game. All room and se
 
 Usernames are case-insensitive, with surrounding whitespace ignored, and identify players within one room. Each room holds up to eight players. New players join while the room is in the lobby; existing players can reconnect during play or after the game finishes. When the host leaves, another remaining player becomes the host.
 
+On first join, each player receives a random character name, starting health from 83 to 100, stamina from 50 to 100, and a directive. The interface shows the character name, while the username remains the reconnect identity. Reconnecting preserves the character and its current state.
+
 ## Routes
 
 - `GET /`: Create or join room forms.

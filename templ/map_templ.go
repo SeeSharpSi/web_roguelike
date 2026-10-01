@@ -17,7 +17,7 @@ import (
 
 type MapPlayer struct {
 	ID       string
-	Username string
+	Name     string
 	Position game.Pos
 	IsViewer bool
 	Number   int
@@ -74,7 +74,7 @@ func mapMarkerLabel(player MapPlayer, index int) string {
 
 func mapMarkerAccessibleLabel(player MapPlayer, index int, m game.Map) string {
 	coordinate := fmt.Sprintf("%s%d", mapColumnLabel(player.Position.X), m.Length-player.Position.Y)
-	return fmt.Sprintf("Player %s, %s, at %s", mapMarkerLabel(player, index), player.Username, coordinate)
+	return fmt.Sprintf("Player %s, %s, at %s", mapMarkerLabel(player, index), player.Name, coordinate)
 }
 
 func mapMarkerStyle(offsetX, offsetY int) string {
@@ -117,7 +117,7 @@ func mapCrewGroupDetails(players []MapPlayer, indexes []int) string {
 		if details != "" {
 			details += ", "
 		}
-		details += fmt.Sprintf("%s %s", mapMarkerLabel(players[index], index), players[index].Username)
+		details += fmt.Sprintf("%s %s", mapMarkerLabel(players[index], index), players[index].Name)
 	}
 	return details
 }
@@ -468,9 +468,9 @@ func MapWithPlayers(m game.Map, p game.Player, players []MapPlayer) templ.Compon
 								return templ_7745c5c3_Err
 							}
 							var templ_7745c5c3_Var20 string
-							templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(viewer.Username)
+							templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(viewer.Name)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 205, Col: 35}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 205, Col: 31}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 							if templ_7745c5c3_Err != nil {
@@ -550,9 +550,9 @@ func MapWithPlayers(m game.Map, p game.Player, players []MapPlayer) templ.Compon
 								return templ_7745c5c3_Err
 							}
 							var templ_7745c5c3_Var26 string
-							templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(player.Username)
+							templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(player.Name)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 213, Col: 171}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 213, Col: 167}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 							if templ_7745c5c3_Err != nil {
@@ -683,9 +683,9 @@ func MapWithPlayers(m game.Map, p game.Player, players []MapPlayer) templ.Compon
 									return templ_7745c5c3_Err
 								}
 								var templ_7745c5c3_Var36 string
-								templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(player.Username)
+								templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(player.Name)
 								if templ_7745c5c3_Err != nil {
-									return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 228, Col: 176}
+									return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/map.templ`, Line: 228, Col: 172}
 								}
 								_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 								if templ_7745c5c3_Err != nil {

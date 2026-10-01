@@ -62,7 +62,7 @@ templ RoomState(snapshot match.Snapshot, message string) {
 					<span class="player-avatar">P{ strconv.Itoa(playerNumber(snapshot, snapshot.Viewer.ID)) }</span>
 					<span class="viewer-copy">
 						<span class="meta-label">PLAYING AS</span>
-						<span class="viewer-name">{ snapshot.Viewer.Username }</span>
+						<span class="viewer-name">{ snapshot.Viewer.Player.Name }</span>
 					</span>
 				</div>
 			</div>
@@ -171,7 +171,7 @@ templ RoomState(snapshot match.Snapshot, message string) {
 							>
 								<span class={ playerBadgeClass(participant, snapshot) } aria-hidden="true">P{ strconv.Itoa(playerNumber(snapshot, participant.ID)) }</span>
 								<span class="crew-identity">
-									<span class="crew-name">{ participant.Username }</span>
+									<span class="crew-name">{ participant.Player.Name }</span>
 									<span class="crew-metadata">{ coordinateLabel(participant.Player.Position, snapshot.World.Length) } · { strconv.Itoa(participant.Player.Health) } HP</span>
 								</span>
 								<span class="crew-status">
@@ -300,7 +300,7 @@ func mapPlayers(snapshot match.Snapshot) []MapPlayer {
 	for index, participant := range snapshot.Players {
 		players = append(players, MapPlayer{
 			ID:       participant.ID,
-			Username: participant.Username,
+			Name:     participant.Player.Name,
 			Position: participant.Player.Position,
 			IsViewer: participant.ID == snapshot.Viewer.ID,
 			Number:   index + 1,

@@ -711,9 +711,10 @@ async (page) => {
     await page.setViewportSize({ width: 1440, height: 900 });
 
     // Create disposable rooms through the real home form until generated starting room has an object and a visible wall.
+    const viewerUsername = "Mira Voss";
     let roomCode = "";
     for (let attempt = 0; attempt < 16; attempt++) {
-      roomCode = await createRoom(page, "Mira Voss");
+      roomCode = await createRoom(page, viewerUsername);
       const hasInspectableObject = (await page.locator("#room-state button[data-quick-slot]").count()) > 0;
       const hasVisibleWall = (await page.locator("#room-state .map-wall").count()) > 0;
       if (hasInspectableObject && hasVisibleWall) break;
@@ -744,14 +745,29 @@ async (page) => {
     assert(
       (await page.locator("#room-state .player-avatar").textContent())?.trim() === "P2",
       "Viewer roster number",
-      "Mira Voss header avatar should be P2 after alphabetical four-player roster sort",
+      "viewer header avatar should be P2 after username-sorted four-player roster order",
     );
-    assert(await page.getByText("Mira Voss", { exact: false }).first().isVisible(), "Viewer username", "Mira Voss is not visible");
-    const hostRow = await page.locator("#room-state [data-player-id][data-x][data-y][data-health]").evaluateAll((rows) =>
-      rows.find((row) => row.textContent.includes("Mira Voss"))?.getAttribute("data-player-id") || "",
+    const viewerCharacterName = (await page.locator(".viewer-name").textContent())?.trim() || "";
+    assert(Boolean(viewerCharacterName), "Viewer character name", "header has no generated character name");
+    const viewerRow = await page.locator("#room-state .player-row").evaluateAll((rows) => {
+      const row = rows.find((candidate) =>
+        candidate.querySelector(".you-badge") || candidate.querySelector(".host-badge"),
+      );
+      return row
+        ? {
+            id: row.getAttribute("data-player-id") || "",
+            name: row.querySelector(".crew-name")?.textContent?.trim() || "",
+          }
+        : null;
+    });
+    assert(Boolean(viewerRow && viewerRow.id), "Find viewer player", "viewer badge row has no data-player-id");
+    assert(
+      Boolean(viewerRow.name) && viewerRow.name === viewerCharacterName,
+      "Viewer character name",
+      `roster name ${JSON.stringify(viewerRow.name)} does not match header name ${JSON.stringify(viewerCharacterName)}`,
     );
-    assert(Boolean(hostRow), "Find host player", "Mira Voss roster row has no data-player-id");
-    mark("Three independent guests joined; host row, P2 avatar, and username rendered after SSE updates");
+    const hostRow = viewerRow.id;
+    mark(`Three independent guests joined; viewer row and P2 avatar rendered for character ${viewerCharacterName} after SSE updates`);
 
     const geometries = await measureDesktopGeometry();
     const desktopBaseline = await checkLargeViewport(1440, 900, geometries);
@@ -1102,7 +1118,8 @@ async (page) => {
       checks,
       roomCode,
       createdRoomCodes,
-      viewer: "Mira Voss",
+      viewer: viewerCharacterName,
+      viewerUsername,
       movement,
       crewScroll: { start: crewScrollStart, ...crewScroll },
       geometries,

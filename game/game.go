@@ -4,6 +4,7 @@ import "math/rand/v2"
 
 // A struct that contains player stats
 type Player struct {
+	Name     string
 	Alive    bool
 	Health   int
 	Strength float64 // Stength is a multiplier
@@ -48,11 +49,14 @@ type Wall struct {
 	Health int
 }
 
-func (p *Player) Generate_player() {
+func (p *Player) Generate_player(rngs ...*rand.Rand) {
+	rng := generationRand(rngs...)
+	p.Name = characterNames[rng.IntN(len(characterNames))]
 	p.Alive = true
-	p.Health = 83 + rand.N(18)
-	p.Strength = float64(80+rand.N(21)) / 100
-	p.Stamina = 50 + rand.N(51)
+	p.Health = 83 + rng.IntN(18)
+	p.Strength = float64(80+rng.IntN(21)) / 100
+	p.Stamina = 50 + rng.IntN(51)
+	p.Role = characterRoles[rng.IntN(len(characterRoles))]
 }
 
 func generationRand(rngs ...*rand.Rand) *rand.Rand {

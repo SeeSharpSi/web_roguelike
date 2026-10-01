@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"errors"
 	"fmt"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -182,6 +183,13 @@ func TestCreateRoomAndRenderAuthorizedRoom(t *testing.T) {
 	if snapshot.Viewer.ID == "" || snapshot.Viewer.Username != "Host" {
 		t.Fatalf("created viewer = %+v, want original host identity", snapshot.Viewer)
 	}
+	player := snapshot.Viewer.Player
+	if player.Name == "" || player.Name == snapshot.Viewer.Username || player.Role == "" {
+		t.Fatalf("created host character = %+v, want generated name separate from username and directive", player)
+	}
+	if player.Health < 83 || player.Health > 100 || player.Stamina < 50 || player.Stamina > 100 || player.Strength < 0.80 || player.Strength > 1.00 || !player.Alive {
+		t.Fatalf("created host stats are outside generated ranges: %+v", player)
+	}
 	if len(snapshot.Players) != 1 || snapshot.Players[0].ID != snapshot.Viewer.ID {
 		t.Fatalf("created players = %+v, want only original host", snapshot.Players)
 	}
@@ -192,6 +200,20 @@ func TestCreateRoomAndRenderAuthorizedRoom(t *testing.T) {
 	for _, fragment := range []string{`data-room-code="` + code + `"`, `data-status="lobby"`, `id="room-state"`} {
 		if !strings.Contains(response.Body.String(), fragment) {
 			t.Errorf("room response missing %q", fragment)
+		}
+	}
+	escapedName := html.EscapeString(player.Name)
+	for _, fragment := range []string{
+		`<span class="viewer-name">` + escapedName + `</span>`,
+		`<span class="crew-name">` + escapedName + `</span>`,
+		`<h2 id="directive-heading">` + html.EscapeString(string(player.Role)) + `</h2>`,
+		`title="` + escapedName + `"`,
+		`aria-label="Player P1, ` + escapedName + `, at `,
+		fmt.Sprintf(">HEALTH %d</span>", player.Health),
+		fmt.Sprintf(">STAMINA %d</span>", player.Stamina),
+	} {
+		if !strings.Contains(response.Body.String(), fragment) {
+			t.Errorf("room response missing generated character fragment %q", fragment)
 		}
 	}
 }
@@ -217,6 +239,33 @@ func TestJoinReconnectRevokesOldSessionAndProtectsRoomState(t *testing.T) {
 	if joinedSnapshot.Viewer.ID != guestPlayer.ID || joinedSnapshot.Viewer.Username != "Guest" {
 		t.Fatalf("join viewer = %+v, want normalized guest identity", joinedSnapshot.Viewer)
 	}
+	if guestPlayer.Player.Name == "" || guestPlayer.Player.Role == "" {
+		t.Fatalf("joined guest character = %+v, want generated name and directive", guestPlayer.Player)
+	}
+	if guestPlayer.Player.Health < 83 || guestPlayer.Player.Health > 100 || guestPlayer.Player.Stamina < 50 || guestPlayer.Player.Stamina > 100 || guestPlayer.Player.Strength < 0.80 || guestPlayer.Player.Strength > 1.00 || !guestPlayer.Player.Alive {
+		t.Fatalf("joined guest stats are outside generated ranges: %+v", guestPlayer.Player)
+	}
+	guestPage := guest.get("/rooms/" + code)
+	assertStatus(t, guestPage, http.StatusOK)
+	guestState := guest.get("/rooms/" + code + "/state")
+	assertStatus(t, guestState, http.StatusOK)
+	escapedGuestName := html.EscapeString(guestPlayer.Player.Name)
+	for _, rendered := range []struct {
+		label string
+		body  string
+	}{
+		{label: "guest page", body: guestPage.Body.String()},
+		{label: "guest state", body: guestState.Body.String()},
+	} {
+		for _, fragment := range []string{
+			`<span class="viewer-name">` + escapedGuestName + `</span>`,
+			`<span class="crew-name">` + escapedGuestName + `</span>`,
+		} {
+			if !strings.Contains(rendered.body, fragment) {
+				t.Errorf("%s missing generated guest character fragment %q", rendered.label, fragment)
+			}
+		}
+	}
 
 	unconnected := app.client()
 	unconnected.get("/")
@@ -240,11 +289,26 @@ func TestJoinReconnectRevokesOldSessionAndProtectsRoomState(t *testing.T) {
 		t.Fatalf("reconnect Location = %q, want canonical room URL", reconnect.Header().Get("Location"))
 	}
 	reconnectedSnapshot := mustSnapshot(t, app, code, reconnected.sessionID(t))
-	if got := participantByUsername(t, reconnectedSnapshot, "Guest").ID; got != guestPlayer.ID {
-		t.Fatalf("reconnected player ID = %q, want preserved ID %q", got, guestPlayer.ID)
+	reconnectedPlayer := participantByUsername(t, reconnectedSnapshot, "Guest")
+	if reconnectedPlayer.ID != guestPlayer.ID {
+		t.Fatalf("reconnected player ID = %q, want preserved ID %q", reconnectedPlayer.ID, guestPlayer.ID)
+	}
+	if reconnectedPlayer.Player != guestPlayer.Player {
+		t.Fatalf("reconnected player = %+v, want preserved first-join character %+v", reconnectedPlayer.Player, guestPlayer.Player)
 	}
 	if len(reconnectedSnapshot.Players) != 2 {
 		t.Fatalf("player count after reconnect = %d, want 2", len(reconnectedSnapshot.Players))
+	}
+	reconnectedPage := reconnected.get("/rooms/" + code)
+	assertStatus(t, reconnectedPage, http.StatusOK)
+	for _, fragment := range []string{
+		`<span class="viewer-name">` + escapedGuestName + `</span>`,
+		`<span class="crew-name">` + escapedGuestName + `</span>`,
+		`<h2 id="directive-heading">` + html.EscapeString(string(guestPlayer.Player.Role)) + `</h2>`,
+	} {
+		if !strings.Contains(reconnectedPage.Body.String(), fragment) {
+			t.Errorf("reconnected room page missing preserved character fragment %q", fragment)
+		}
 	}
 	if _, err := app.handler.Matches.Snapshot(code, oldSessionID); !errors.Is(err, match.ErrNotMember) {
 		t.Fatalf("snapshot for replaced session error = %v, want ErrNotMember", err)
@@ -349,8 +413,12 @@ func TestHostAuthorizationAndReconnectAcrossGameStates(t *testing.T) {
 	activeReconnectResponse := activeReconnect.post("/rooms/"+code+"/join", url.Values{"username": {" MEMBER "}})
 	assertStatus(t, activeReconnectResponse, http.StatusSeeOther)
 	assertNoStore(t, activeReconnectResponse)
-	if got := mustSnapshot(t, app, code, activeReconnect.sessionID(t)).Viewer.ID; got != memberPlayerID {
-		t.Fatalf("active reconnect player ID = %q, want %q", got, memberPlayerID)
+	activeReconnectSnapshot := mustSnapshot(t, app, code, activeReconnect.sessionID(t))
+	if activeReconnectSnapshot.Viewer.ID != memberPlayerID {
+		t.Fatalf("active reconnect player ID = %q, want %q", activeReconnectSnapshot.Viewer.ID, memberPlayerID)
+	}
+	if activeReconnectSnapshot.Viewer.Player != afterMove.Viewer.Player {
+		t.Fatalf("active reconnect player = %+v, want progressed player state %+v", activeReconnectSnapshot.Viewer.Player, afterMove.Viewer.Player)
 	}
 	staleMemberAction := member.post("/rooms/"+code+"/finish", url.Values{"playerID": {active.HostPlayerID}})
 	assertStatus(t, staleMemberAction, http.StatusUnauthorized)
@@ -371,6 +439,9 @@ func TestHostAuthorizationAndReconnectAcrossGameStates(t *testing.T) {
 	finishedSnapshot := mustSnapshot(t, app, code, finishedReconnect.sessionID(t))
 	if finishedSnapshot.Status != match.Finished || finishedSnapshot.Viewer.ID != memberPlayerID {
 		t.Fatalf("finished reconnect snapshot = status %q viewer %q, want finished and %q", finishedSnapshot.Status, finishedSnapshot.Viewer.ID, memberPlayerID)
+	}
+	if finishedSnapshot.Viewer.Player != afterMove.Viewer.Player {
+		t.Fatalf("finished reconnect player = %+v, want progressed player state %+v", finishedSnapshot.Viewer.Player, afterMove.Viewer.Player)
 	}
 }
 

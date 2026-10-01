@@ -172,7 +172,7 @@ func TestMapWithPlayersRendersCanonicalWallOverlay(t *testing.T) {
 	viewer := game.Player{Alive: true, Position: viewerPosition}
 	players := []templ.MapPlayer{{
 		ID:       "viewer-id",
-		Username: "Ada",
+		Name:     "Ada",
 		Position: viewerPosition,
 		IsViewer: true,
 		Number:   2,

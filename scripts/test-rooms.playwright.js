@@ -69,6 +69,7 @@ async (page) => {
           x: row.getAttribute("data-x"),
           y: row.getAttribute("data-y"),
           health: row.getAttribute("data-health"),
+          name: row.querySelector(".crew-name")?.textContent?.trim() || "",
           text: row.textContent || "",
         }))
         .sort((left, right) => left.id.localeCompare(right.id));
@@ -106,6 +107,7 @@ async (page) => {
           x: row.getAttribute("data-x"),
           y: row.getAttribute("data-y"),
           health: row.getAttribute("data-health"),
+          name: row.querySelector(".crew-name")?.textContent?.trim() || "",
           text: row.textContent || "",
         }))
         .sort((left, right) => left.id.localeCompare(right.id));
@@ -129,14 +131,14 @@ async (page) => {
   }
 
   function playerStats(player) {
-    return player && { x: player.x, y: player.y, health: player.health };
+    return player && { x: player.x, y: player.y, health: player.health, name: player.name };
   }
 
   function assertSameStats(actual, expected, step) {
     assert(
       JSON.stringify(playerStats(actual)) === JSON.stringify(playerStats(expected)),
       step,
-      `player stats changed: expected ${JSON.stringify(playerStats(expected))}, got ${JSON.stringify(playerStats(actual))}`,
+      `player position, health, or character name changed: expected ${JSON.stringify(playerStats(expected))}, got ${JSON.stringify(playerStats(actual))}`,
     );
   }
 
@@ -187,11 +189,11 @@ async (page) => {
     // 2. Join same room from independent context and verify shared map and host SSE updates.
     const peer = await newIndependentPage();
     const peerJoinButton = await fillHomeJoin(peer.page, primaryCode, "Scout");
-    await submitAndWaitForNavigation(peer.page, peerJoinButton, "Join primary room as Scout");
+    await submitAndWaitForNavigation(peer.page, peerJoinButton, "Join primary room with Scout username");
     await waitForRoom(
       peer.page,
       { code: primaryCode, status: "lobby", playerCount: 2 },
-      "Join primary room as Scout",
+      "Join primary room with Scout username",
     );
     await page
       .locator("#room-state [data-player-id][data-x][data-y][data-health]")
@@ -202,17 +204,34 @@ async (page) => {
     const joinedIDs = peerSnapshot.players.map((player) => player.id);
     assert(new Set(joinedIDs).size === 2, "Join primary room", "duplicate roster player IDs found");
     assert(joinedIDs.includes(hostID), "Join primary room", "host ID missing from peer roster");
+    const scoutPlayer = peerSnapshot.players.find((player) => player.id !== hostID);
     assert(
-      peerSnapshot.players.some((player) => /Scout/.test(player.text)),
-      "Join primary room",
-      "Scout username missing from peer roster",
+      Boolean(scoutPlayer) && scoutPlayer.id !== hostID,
+      "Join primary room with Scout username",
+      "new participant does not have a player ID distinct from the host",
+    );
+    const peerViewerName = ((await peer.page.locator(".viewer-name").textContent()) || "").trim();
+    assert(
+      Boolean(scoutPlayer.name),
+      "Join primary room with Scout username",
+      "participant has no generated character name",
+    );
+    assert(
+      scoutPlayer.name === peerViewerName,
+      "Join primary room with Scout username",
+      `roster character name ${JSON.stringify(scoutPlayer.name)} does not match viewer name ${JSON.stringify(peerViewerName)}`,
+    );
+    assert(
+      scoutPlayer.name !== "Scout",
+      "Join primary room with Scout username",
+      "generated character name unexpectedly matches Scout login username",
     );
     assert(
       JSON.stringify(peerSnapshot.map) === JSON.stringify(initialHost.map),
       "Join primary room",
       "peer sees a different map wall signature or grid dimensions",
     );
-    mark("Independent Scout joined; host SSE update showed two players and identical map");
+    mark(`Independent Scout login joined as character ${scoutPlayer.name}; host SSE update showed two players and identical map`);
 
     // 3. Create another room with same username; room identity and state remain isolated.
     const isolated = await newIndependentPage();
@@ -356,7 +375,8 @@ async (page) => {
     assert(strangerState.status() === 401, "Stranger state authorization", `expected 401, got ${strangerState.status()}`);
     const strangerBody = await strangerState.text();
     assert(
-      !/id=["']room-state|data-player-id|Cassian|Scout/.test(strangerBody),
+      !/id=["']room-state|data-player-id/.test(strangerBody) &&
+        !strangerBody.includes(hostID) && !strangerBody.includes(scoutPlayer.id),
       "Stranger state privacy",
       "unauthorized state response disclosed room or player data",
     );

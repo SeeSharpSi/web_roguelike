@@ -270,9 +270,9 @@ func RoomState(snapshot match.Snapshot, message string) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var17 string
-		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(snapshot.Viewer.Username)
+		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(snapshot.Viewer.Player.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/room.templ`, Line: 65, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/room.templ`, Line: 65, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -749,9 +749,9 @@ func RoomState(snapshot match.Snapshot, message string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var48 string
-			templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(participant.Username)
+			templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(participant.Player.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/room.templ`, Line: 174, Col: 55}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templ/room.templ`, Line: 174, Col: 58}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 			if templ_7745c5c3_Err != nil {
@@ -1432,7 +1432,7 @@ func mapPlayers(snapshot match.Snapshot) []MapPlayer {
 	for index, participant := range snapshot.Players {
 		players = append(players, MapPlayer{
 			ID:       participant.ID,
-			Username: participant.Username,
+			Name:     participant.Player.Name,
 			Position: participant.Player.Position,
 			IsViewer: participant.ID == snapshot.Viewer.ID,
 			Number:   index + 1,

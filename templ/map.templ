@@ -9,7 +9,7 @@ import (
 
 type MapPlayer struct {
 	ID       string
-	Username string
+	Name     string
 	Position game.Pos
 	IsViewer bool
 	Number   int
@@ -66,7 +66,7 @@ func mapMarkerLabel(player MapPlayer, index int) string {
 
 func mapMarkerAccessibleLabel(player MapPlayer, index int, m game.Map) string {
 	coordinate := fmt.Sprintf("%s%d", mapColumnLabel(player.Position.X), m.Length-player.Position.Y)
-	return fmt.Sprintf("Player %s, %s, at %s", mapMarkerLabel(player, index), player.Username, coordinate)
+	return fmt.Sprintf("Player %s, %s, at %s", mapMarkerLabel(player, index), player.Name, coordinate)
 }
 
 func mapMarkerStyle(offsetX, offsetY int) string {
@@ -109,7 +109,7 @@ func mapCrewGroupDetails(players []MapPlayer, indexes []int) string {
 		if details != "" {
 			details += ", "
 		}
-		details += fmt.Sprintf("%s %s", mapMarkerLabel(players[index], index), players[index].Username)
+		details += fmt.Sprintf("%s %s", mapMarkerLabel(players[index], index), players[index].Name)
 	}
 	return details
 }
@@ -202,7 +202,7 @@ templ MapWithPlayers(m game.Map, p game.Player, players []MapPlayer) {
 												data-player-id={ viewer.ID }
 												role="img"
 												aria-label={ mapMarkerAccessibleLabel(viewer, viewerIndex, m) }
-												title={ viewer.Username }
+												title={ viewer.Name }
 											>
 												<span class="map-marker-label">{ mapMarkerLabel(viewer, viewerIndex) }</span>
 											</span>
@@ -210,7 +210,7 @@ templ MapWithPlayers(m game.Map, p game.Player, players []MapPlayer) {
 										if len(crewIndexes) == 1 && !hasViewer {
 											{{ index := crewIndexes[0] }}
 											{{ player := players[index] }}
-											<span class={ mapMarkerClass(player) } data-player-id={ player.ID } role="img" aria-label={ mapMarkerAccessibleLabel(player, index, m) } title={ player.Username }>
+											<span class={ mapMarkerClass(player) } data-player-id={ player.ID } role="img" aria-label={ mapMarkerAccessibleLabel(player, index, m) } title={ player.Name }>
 												<span class="map-marker-label">{ mapMarkerLabel(player, index) }</span>
 											</span>
 										} else if len(crewIndexes) > 0 {
@@ -225,7 +225,7 @@ templ MapWithPlayers(m game.Map, p game.Player, players []MapPlayer) {
 											</span>
 											for _, index := range crewIndexes {
 												{{ player := players[index] }}
-												<span class="map-marker-accessible-player" data-player-id={ player.ID } role="img" aria-label={ mapMarkerAccessibleLabel(player, index, m) } title={ player.Username }></span>
+												<span class="map-marker-accessible-player" data-player-id={ player.ID } role="img" aria-label={ mapMarkerAccessibleLabel(player, index, m) } title={ player.Name }></span>
 											}
 										}
 									}
